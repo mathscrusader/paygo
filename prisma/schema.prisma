@@ -1,0 +1,42 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Define user roles
+enum Role {
+  USER
+  ADMIN
+}
+
+/// A user of your VTU portal
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  payId     String?  @unique
+  transactions Transaction[]
+}
+
+
+/// A VTU transaction (e.g. airtime/data top-up)
+model Transaction {
+  id         String   @id @default(cuid())
+  userId     String
+  number     String
+  amount     Int
+  status     String
+  approved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+}
