@@ -2,6 +2,14 @@
 
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { createClient } from "@supabase/supabase-js";
+import { compare } from "bcryptjs";
+
+// Initialize Supabase client with service_role key for elevated privileges
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export const authOptions = {
   providers: [
@@ -12,18 +20,48 @@ export const authOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(creds) {
-        if (
-          creds?.email === process.env.ADMIN_EMAIL &&
-          creds.password === process.env.ADMIN_PASSWORD
-        ) {
-          return { email: creds.email, role: "ADMIN" };
+        if (!creds?.email || !creds?.password) return null;
+
+        // Fetch the user by email from Supabase
+        const { data: user, error } = await supabaseAdmin
+          .from("users")
+          .select("id, email, password_hash")
+          .eq("email", creds.email)
+          .single();
+        if (error || !user) {
+          console.error("Authorize: no user found", error);
+          return null;
         }
-        return null;
+
+        // Verify password
+        const validPassword = await compare(creds.password, user.password_hash);
+        if (!validPassword) {
+          console.error("Authorize: invalid password");
+          return null;
+        }
+
+        // Successfully authenticated
+        return { id: user.id, email: user.email, role: "ADMIN" };
       },
     }),
   ],
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
+
+  // Enable debug logging for NextAuth
+  debug: true,
+  logger: {
+    error(code, metadata) {
+      console.error(code, metadata);
+    },
+    warn(code) {
+      console.warn(code);
+    },
+    debug(code, metadata) {
+      console.debug(code, metadata);
+    },
+  },
+
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -37,6 +75,7 @@ export const authOptions = {
       return session;
     },
   },
+
   pages: { signIn: "/auth/signin" },
 };
 
