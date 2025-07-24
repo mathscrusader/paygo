@@ -1,6 +1,3 @@
-// app/api/transaction/approve/route.ts
-
-
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
