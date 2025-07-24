@@ -21,11 +21,13 @@ export const authOptions = {
       async authorize(creds) {
         if (!creds?.email || !creds.password) return null;
 
-        // Optionally restrict to your one admin email
-        if (creds.email !== process.env.ADMIN_EMAIL) {
-          console.error("Authorize: unauthorized email", creds.email);
-          return null;
-        }
+        // ————————————————
+        // GUARD REMOVED: no longer restricting by ADMIN_EMAIL
+        // if (creds.email !== process.env.ADMIN_EMAIL) {
+        //   console.error("Authorize: unauthorized email", creds.email);
+        //   return null;
+        // }
+        // ————————————————
 
         // Use Supabase Auth API to sign in
         const { data, error } = await supabaseAdmin.auth.signInWithPassword({
