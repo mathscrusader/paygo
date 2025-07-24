@@ -1,4 +1,8 @@
 // app/api/admin/banks/create/route.ts
+
+// Force this API route to always run as dynamic (no static prerender)
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
