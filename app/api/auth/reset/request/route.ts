@@ -1,6 +1,6 @@
 // app/api/auth/reset/request/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"; // adjust path
+import { prisma } from '@/lib/generated/prisma'; // adjust path
 import crypto from "crypto";
 import { sendResetEmail } from "@/lib/email"; // implement with nodemailer, resend, etc.
 
