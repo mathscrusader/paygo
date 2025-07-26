@@ -117,7 +117,7 @@ export default function RegisterPage() {
           className="h-14 rounded-full"
         />
 
-        <Select value={country} onValueChange={setCountry} required>
+        {/* <Select value={country} onValueChange={setCountry} required>
           <SelectTrigger className="h-14 rounded-full">
             <SelectValue placeholder="Select Country" />
           </SelectTrigger>
@@ -128,7 +128,23 @@ export default function RegisterPage() {
               </SelectItem>
             ))}
           </SelectContent>
-        </Select>
+        </Select> */}
+
+
+          <Select value={country} onValueChange={setCountry} required>
+  <SelectTrigger className="h-14 rounded-full">
+    <SelectValue placeholder="Select Country" />
+  </SelectTrigger>
+  <SelectContent className="rounded-lg bg-white"> {/* Added bg-white here */}
+    {countries.map((c) => (
+      <SelectItem key={c.code} value={c.code}>
+        {c.name}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
+
 
         <Input
           type="password"
