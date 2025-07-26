@@ -1,40 +1,45 @@
-// app/forgot-password/page.tsx
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { supabase } from "@/lib/supabase"
-import { Logo } from "@/components/logo"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { Logo } from "@/components/logo";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function ForgotPasswordPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState("")
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const handleReset = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
-    setMessage("")
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
 
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`
-    })
+    // build the absolute link using your env var
+    const redirectURL =
+      `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`;
+
+    const { data, error } = await supabase.auth.resetPasswordForEmail(
+      email,
+      { redirectTo: redirectURL }
+    );
 
     if (error) {
-      setError(error.message)
+      setError(error.message);
     } else {
-      setMessage("If an account exists, you’ll receive a password reset link shortly.")
+      setMessage(
+        "If an account exists, you’ll receive a password reset link shortly."
+      );
     }
-
-    setLoading(false)
-  }
+    setLoading(false);
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#f9f2f2]">
@@ -73,5 +78,5 @@ export default function ForgotPasswordPage() {
         </Link>
       </p>
     </div>
-  )
+  );
 }

@@ -1,4 +1,3 @@
-// app/upgrade/benefits/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -27,7 +26,6 @@ export default function LevelBenefitsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Guard for SSR
     if (typeof window === "undefined") return;
 
     const stored = localStorage.getItem("paygo-selected-level");
@@ -52,9 +50,7 @@ export default function LevelBenefitsPage() {
 
     supabase
       .from<UpgradeLevelRow>("UpgradeLevel")
-      .select(
-        "key, name, price, icon, color, bgcolor, bordercolor, description"
-      )
+      .select("key, name, price, icon, color, bgcolor, bordercolor, description")
       .eq("key", key)
       .single()
       .then(({ data, error }) => {
@@ -97,10 +93,15 @@ export default function LevelBenefitsPage() {
     .filter(Boolean);
 
   const handleProceedToPayment = () => {
-    // Payment page reads paygo-selected-level, but we also keep your old key just in case
     const payload = { id: key, name, price };
+
+    // Save required data for future steps
     localStorage.setItem("paygo-selected-level", JSON.stringify(payload));
     localStorage.setItem("paygo-upgrade-data", JSON.stringify(payload));
+
+    // ✅ Fix: ensure paygo-pay-id-form is available for select-bank page
+    localStorage.setItem("paygo-pay-id-form", JSON.stringify({ email: "guest@example.com" }));
+
     router.push("/upgrade/loading");
   };
 
@@ -129,7 +130,7 @@ export default function LevelBenefitsPage() {
         <div className={cn("p-4 rounded-lg border", bordercolor, bgcolor)}>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center">
-              {/* Render an icon if you want, based on levelData.icon */}
+              {/* Optional icon here */}
             </div>
             <div>
               <h2 className="text-lg font-bold">{name}</h2>
@@ -141,9 +142,7 @@ export default function LevelBenefitsPage() {
         {/* Benefits List */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="p-3 bg-purple-50 border-b border-gray-200">
-            <h3 className="font-bold text-sm text-purple-800">
-              Benefits &amp; Features
-            </h3>
+            <h3 className="font-bold text-sm text-purple-800">Benefits &amp; Features</h3>
           </div>
           <div className="p-3">
             {benefits.length === 0 ? (

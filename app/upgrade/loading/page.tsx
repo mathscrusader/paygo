@@ -10,7 +10,7 @@ export default function UpgradeLoadingPage() {
   useEffect(() => {
     // Redirect to payment page after 2 seconds
     const timer = setTimeout(() => {
-      router.push("/upgrade/payment")
+      router.push("/upgrade/select-bank")
     }, 2000)
 
     return () => clearTimeout(timer)
