@@ -8,43 +8,79 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { WithdrawalSchedulePopup } from "@/components/withdrawal-schedule-popup"
+import { useAuth } from "@/app/providers"
+import { supabase } from "@/lib/supabase"
 
 export default function WithdrawReferralPage() {
   const router = useRouter()
-  const [userData, setUserData] = useState<any>(null)
+  const { session, loading } = useAuth()
+
   const [accountName, setAccountName] = useState("")
   const [accountNumber, setAccountNumber] = useState("")
   const [bank, setBank] = useState("")
+  const [referralBalance, setReferralBalance] = useState(0)
   const [showSchedulePopup, setShowSchedulePopup] = useState(false)
-
-  // Referral balance - in a real app, this would come from the backend
-  const referralBalance = 5000
+  const [message, setMessage] = useState("")
 
   useEffect(() => {
-    // Check if user is logged in
-    const storedUser = localStorage.getItem("paygo-user")
-
-    if (!storedUser) {
-      router.push("/login")
+    if (loading) return
+    if (!session) {
+      router.replace("/login")
       return
     }
 
-    setUserData(JSON.parse(storedUser))
-  }, [router])
+    const fetchBalance = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("reward_balance")
+        .eq("id", session.user.id)
+        .single()
 
-  const handleSubmit = () => {
+      if (!error && data?.reward_balance != null) {
+        setReferralBalance(data.reward_balance)
+      }
+    }
+
+    fetchBalance()
+  }, [loading, session, router])
+
+  const handleSubmit = async () => {
+    setMessage("")
+
     if (!accountName || !accountNumber || !bank) {
-      alert("Please fill all required fields")
+      setMessage("Please fill all required fields.")
       return
     }
 
-    // Validate account number is exactly 10 digits
     if (accountNumber.length !== 10) {
-      alert("Account number must be 10 digits")
+      setMessage("Account number must be 10 digits.")
       return
     }
 
-    // Show the withdrawal schedule popup
+    if (referralBalance < 20000) {
+      const shortfall = 20000 - referralBalance
+      setMessage(`Minimum withdrawal is ₦20,000. You’re short by ₦${shortfall.toLocaleString()}.`)
+      return
+    }
+
+    // Insert withdrawal request to Supabase for admin to process
+    const { error } = await supabase.from("Withdrawals").insert([
+      {
+        user_id: session.user.id,
+        account_name: accountName,
+        bank_name: bank,
+        account_number: accountNumber,
+        amount: referralBalance,
+        status: "pending",
+        method: "bank",
+      },
+    ])
+
+    if (error) {
+      setMessage("Failed to submit withdrawal request. Please try again.")
+      return
+    }
+
     setShowSchedulePopup(true)
   }
 
@@ -53,7 +89,6 @@ export default function WithdrawReferralPage() {
     router.push("/refer")
   }
 
-  // Update the banks array with Nigerian banks
   const banks = [
     "Access Bank",
     "Citibank Nigeria",
@@ -78,7 +113,7 @@ export default function WithdrawReferralPage() {
     "Palmpay",
   ]
 
-  if (!userData) {
+  if (loading || !session) {
     return <div className="p-6 text-center">Loading...</div>
   }
 
@@ -96,6 +131,9 @@ export default function WithdrawReferralPage() {
       <div className="m-4 p-4 bg-purple-50 border border-purple-100 rounded-lg">
         <div className="text-sm text-purple-700 mb-1">Available Balance</div>
         <div className="text-2xl font-bold text-purple-800">₦{referralBalance.toLocaleString()}</div>
+        <p className="text-xs text-gray-600 mt-1">
+          Minimum withdrawal amount is ₦20,000.
+        </p>
       </div>
 
       {/* Form */}
@@ -124,11 +162,8 @@ export default function WithdrawReferralPage() {
             placeholder="Enter account number"
             value={accountNumber}
             onChange={(e) => {
-              // Limit to 10 digits
               const value = e.target.value
-              if (value.length <= 10) {
-                setAccountNumber(value)
-              }
+              if (value.length <= 10) setAccountNumber(value)
             }}
             className="border-purple-200 rounded-lg p-3 h-14"
             maxLength={10}
@@ -145,15 +180,23 @@ export default function WithdrawReferralPage() {
             <SelectTrigger className="border-purple-200 rounded-lg p-3 h-14">
               <SelectValue placeholder="Select Bank" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white rounded-lg shadow-md">
               {banks.map((bankName) => (
-                <SelectItem key={bankName} value={bankName}>
+                <SelectItem
+                  key={bankName}
+                  value={bankName}
+                  className="hover:bg-purple-100 focus:bg-purple-100 transition-colors"
+                >
                   {bankName}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+
+        {message && (
+          <p className="text-sm text-red-600 mt-2 font-medium">{message}</p>
+        )}
 
         <Button
           onClick={handleSubmit}

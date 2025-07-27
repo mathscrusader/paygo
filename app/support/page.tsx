@@ -3,20 +3,17 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, MessageSquare, MessageCircle } from "lucide-react"
+import { ArrowLeft, MessageSquare, Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { LiveChat } from "@/components/live-chat"
 import { useAuth } from "@/app/providers"
 
 export default function SupportPage() {
   const router = useRouter()
   const { session, loading } = useAuth()
-  const [showLiveChat, setShowLiveChat] = useState(false)
   const [displayName, setDisplayName] = useState<string>("User")
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Graceful auth guard
   useEffect(() => {
     if (loading) return
     if (redirectTimeoutRef.current) {
@@ -28,9 +25,9 @@ export default function SupportPage() {
         if (!session) router.replace("/login")
       }, 400)
     } else {
-      // derive display name from metadata/email
       const metaName =
-        (session.user.user_metadata && (session.user.user_metadata.fullName || session.user.user_metadata.name)) ||
+        (session.user.user_metadata &&
+          (session.user.user_metadata.fullName || session.user.user_metadata.name)) ||
         session.user.email?.split("@")[0] ||
         "User"
       setDisplayName(metaName)
@@ -47,8 +44,9 @@ export default function SupportPage() {
     window.open(whatsappUrl, "_blank")
   }
 
-  const handleLiveChat = () => setShowLiveChat(true)
-  const handleCloseLiveChat = () => setShowLiveChat(false)
+  const handleTelegramSupport = () => {
+    window.open("https://t.me/realtechrt", "_blank")
+  }
 
   const stillLoading = loading || (loading === false && !session)
 
@@ -73,25 +71,27 @@ export default function SupportPage() {
       <div className="p-4 space-y-6">
         <h2 className="text-xl font-semibold">How can we help you, {displayName}?</h2>
 
-        {/* Live Chat Card */}
+        {/* Telegram Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-purple-600" />
-              Live Chat
+              <Bot className="h-5 w-5 text-purple-600" />
+              Telegram Channel
             </CardTitle>
-            <CardDescription>Chat with our support team directly in the app</CardDescription>
+            <CardDescription>
+              Join our official Telegram group for updates, questions, and support.
+            </CardDescription>
           </CardHeader>
-            <CardContent>
+          <CardContent>
             <Button
-              onClick={handleLiveChat}
-              className="w-full bg-purple-600 hover:bg-purple-700 flex items-center gap-2"
+              onClick={handleTelegramSupport}
+              className="w-full bg-blue-500 hover:bg-blue-600 flex items-center gap-2"
             >
-              <MessageCircle className="h-5 w-5" />
-              Start Live Chat
+              <Bot className="h-5 w-5" />
+              Join on Telegram
             </Button>
             <p className="text-sm text-gray-500 mt-2">
-              Our support agents are available to assist you with any questions or issues.
+              Get community support, updates, and quick help from admins.
             </p>
           </CardContent>
         </Card>
@@ -103,7 +103,9 @@ export default function SupportPage() {
               <MessageSquare className="h-5 w-5 text-purple-600" />
               WhatsApp Support
             </CardTitle>
-            <CardDescription>Chat with our support team on WhatsApp for quick assistance</CardDescription>
+            <CardDescription>
+              Chat with our support team on WhatsApp for quick assistance
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
@@ -119,14 +121,13 @@ export default function SupportPage() {
           </CardContent>
         </Card>
 
+        {/* Footer */}
         <div className="text-center text-sm text-gray-500 mt-6">
           Financial Services
           <br />
           PayGo © 2023. All rights reserved.
         </div>
       </div>
-
-      {showLiveChat && <LiveChat onClose={handleCloseLiveChat} />}
     </div>
   )
 }

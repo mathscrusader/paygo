@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ExternalLink, Share2 } from "lucide-react"
+import { ArrowLeft, ExternalLink, Share2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/app/providers"
 import { supabase } from "@/lib/supabase"
@@ -14,9 +14,9 @@ export default function EarnMorePage() {
   const [displayName, setDisplayName] = useState("User")
   const [referralCode, setReferralCode] = useState("")
   const [referralLink, setReferralLink] = useState("")
+  const [showModal, setShowModal] = useState(false)
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Graceful auth guard & referral setup
   useEffect(() => {
     if (loading) return
 
@@ -41,7 +41,6 @@ export default function EarnMorePage() {
 
     setDisplayName(metaName)
 
-    // Fetch referral code and generate if not set
     const fetchReferralCode = async () => {
       const { data, error } = await supabase
         .from("profiles")
@@ -84,8 +83,34 @@ export default function EarnMorePage() {
     return <div className="p-6 text-center">Redirecting…</div>
   }
 
+  const handleShare = (platform: string) => {
+    const encodedLink = encodeURIComponent(referralLink)
+    let shareUrl = ""
+
+    switch (platform) {
+      case "whatsapp":
+        shareUrl = `https://wa.me/?text=Join%20PayGo%20and%20earn%20₦5,000!%20Sign%20up%20using%20my%20link:%20${encodedLink}`
+        break
+      case "facebook":
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}`
+        break
+      case "instagram":
+        shareUrl = `https://www.instagram.com/` // Instagram does not support direct share via URL
+        break
+      case "twitter":
+        shareUrl = `https://twitter.com/intent/tweet?text=Join%20PayGo%20and%20earn%20₦5,000!%20Use%20my%20referral:%20${encodedLink}`
+        break
+    }
+
+    if (shareUrl) {
+      window.open(shareUrl, "_blank")
+    }
+
+    setShowModal(false)
+  }
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white relative">
       {/* Header */}
       <div className="flex items-center p-4 border-b">
         <Link href="/dashboard" className="flex items-center gap-2">
@@ -132,24 +157,23 @@ export default function EarnMorePage() {
             </div>
           )}
 
-          <Link href="/refer">
-            <Button className="w-full mt-4 bg-white text-purple-700 hover:bg-gray-100 flex items-center justify-center gap-2 h-12">
-              <Share2 className="h-5 w-5" />
-              Start Referring Friends
-            </Button>
-          </Link>
+          <Button
+            onClick={() => setShowModal(true)}
+            className="w-full mt-4 bg-white text-purple-700 hover:bg-gray-100 flex items-center justify-center gap-2 h-12"
+          >
+            <Share2 className="h-5 w-5" />
+            Share to Friends
+          </Button>
         </div>
 
         {/* EasyMonie REF Section */}
         <div className="text-center space-y-4 pt-4 border-t">
           <h2 className="text-2xl font-bold text-purple-800">EasyMonie REF</h2>
-
           <div className="space-y-2 text-gray-600">
             <p>Take your earnings to the next level with EasyMonie bot.</p>
             <p>Access exclusive features and higher earning opportunities.</p>
             <p>Join thousands of users already maximizing their income.</p>
           </div>
-
           <a
             href="https://t.me/Easymoniee_bot"
             target="_blank"
@@ -161,6 +185,38 @@ export default function EarnMorePage() {
           </a>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-80 space-y-4 relative">
+            <button
+              onClick={() => setShowModal(false)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-lg font-semibold text-gray-800 text-center">Share to Friends</h2>
+            <p className="text-sm text-center text-gray-600">
+              Select a platform to share your referral link:
+            </p>
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <Button onClick={() => handleShare("whatsapp")} className="bg-green-500 hover:bg-green-600 text-white">
+                WhatsApp
+              </Button>
+              <Button onClick={() => handleShare("facebook")} className="bg-blue-600 hover:bg-blue-700 text-white">
+                Facebook
+              </Button>
+              <Button onClick={() => handleShare("instagram")} className="bg-pink-500 hover:bg-pink-600 text-white">
+                Instagram
+              </Button>
+              <Button onClick={() => handleShare("twitter")} className="bg-sky-500 hover:bg-sky-600 text-white">
+                Twitter
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,35 +1,71 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Share2, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/app/providers"
+import { supabase } from "@/lib/supabase"
 
 export default function ReferPage() {
   const router = useRouter()
-  const [userData, setUserData] = useState<any>(null)
+  const { session, loading } = useAuth()
   const [copied, setCopied] = useState(false)
-  const referralCode = "PAYGO-" + Math.random().toString(36).substring(2, 8).toUpperCase()
-  const referralLink = `https://paygo-finance.vercel.app/register?ref=${referralCode}`
 
-  // Promotional text to copy along with the link
-  const promotionalText = `Join PayGo and get ₦180,000 welcome bonus instantly! I'm already earning with PayGo. Sign up using my link: ${referralLink}`
-
-  // Referral balance - in a real app, this would come from the backend
-  const referralBalance = 5000
+  const [referralCode, setReferralCode] = useState("")
+  const [referralLink, setReferralLink] = useState("")
+  const [referralBalance, setReferralBalance] = useState(0)
+  const [totalEarnings, setTotalEarnings] = useState(0)
+  const [totalReferrals, setTotalReferrals] = useState(0)
 
   useEffect(() => {
-    // Check if user is logged in
-    const storedUser = localStorage.getItem("paygo-user")
-
-    if (!storedUser) {
-      router.push("/login")
+    if (loading) return
+    if (!session) {
+      router.replace("/login")
       return
     }
 
-    setUserData(JSON.parse(storedUser))
-  }, [router])
+    const fetchReferralData = async () => {
+      // 1. Get profile info
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("referral_code, reward_balance")
+        .eq("id", session.user.id)
+        .single()
+
+      if (!profile) return
+
+      const code = profile.referral_code
+      const balance = profile.reward_balance ?? 0
+      const link = `${window.location.origin}/register?ref=${code}`
+
+      setReferralCode(code)
+      setReferralBalance(balance)
+      setReferralLink(link)
+
+      // 2. Get total referrals
+      const { data: referred } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("referred_by", code)
+
+      setTotalReferrals(referred?.length || 0)
+
+      // 3. Get total earnings
+      const { data: rewards } = await supabase
+        .from("ReferralRewards")
+        .select("reward_amount")
+        .eq("referrer_id", session.user.id)
+
+      const earnings = rewards?.reduce((sum, r) => sum + r.reward_amount, 0) || 0
+      setTotalEarnings(earnings)
+    }
+
+    fetchReferralData()
+  }, [loading, session, router])
+
+  const promotionalText = `Join PayGo and get ₦180,000 welcome bonus instantly! I'm already earning with PayGo. Sign up using my link: ${referralLink}`
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(promotionalText)
@@ -46,7 +82,7 @@ export default function ReferPage() {
     router.push("/refer/withdraw")
   }
 
-  if (!userData) {
+  if (loading || !session) {
     return <div className="p-6 text-center">Loading...</div>
   }
 
@@ -126,11 +162,11 @@ export default function ReferPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 gap-4 mt-6">
           <div className="bg-gray-50 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-purple-600">1</div>
+            <div className="text-2xl font-bold text-purple-600">{totalReferrals}</div>
             <div className="text-sm text-gray-500">Total Referrals</div>
           </div>
           <div className="bg-gray-50 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-purple-600">₦5,000</div>
+            <div className="text-2xl font-bold text-purple-600">₦{totalEarnings.toLocaleString()}</div>
             <div className="text-sm text-gray-500">Total Earnings</div>
           </div>
         </div>
