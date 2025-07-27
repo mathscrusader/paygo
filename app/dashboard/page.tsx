@@ -17,7 +17,15 @@ import { OpayWarningPopup } from "@/components/opay-warning-popup"
 import { useAuth } from "@/app/providers"
 import { supabase } from "@/lib/supabase"
 
-const NIGERIAN_BANKS = [/* same list as before (truncated for brevity) */]
+const NIGERIAN_BANKS = [
+  "Access Bank", "Citibank", "Ecobank", "Fidelity Bank", "First Bank", "FCMB",
+  "GTBank", "Heritage Bank", "Keystone Bank", "Polaris Bank", "Stanbic IBTC",
+  "Sterling Bank", "Union Bank", "UBA", "Unity Bank", "Wema Bank", "Zenith Bank",
+  "Kuda Bank", "Opay", "Moniepoint", "VFD MFB", "Globus Bank", "Suntrust Bank",
+  "Taj Bank", "Rubies Bank", "Sparkle", "Mint Bank", "Eyowo", "FairMoney",
+  "PalmPay", "Page Financials", "Carbon", "Providus Bank", "Jaiz Bank",
+  "Parallex Bank", "Lotus Bank", "Hope PSB", "MTN MoMo", "Airtel Smartcash"
+]
 
 const inactivePayIds = [
   "PAG-827ZKD2NJWQT", "PAG-193BHF9TXLMR", "PAG-504JUE6AGPYD",
@@ -39,7 +47,7 @@ export default function WithdrawPage() {
 
   const [accountName, setAccountName] = useState("")
   const [accountNumber, setAccountNumber] = useState("")
-  const [bank, setBank] = useState("Access Bank")
+  const [bank, setBank] = useState(NIGERIAN_BANKS[0])
   const [amount, setAmount] = useState("")
 
   const [payId, setPayId] = useState("")
@@ -75,7 +83,6 @@ export default function WithdrawPage() {
     }
   }, [loading, session, router])
 
-  // ✅ Fetch balance from Supabase (wallet)
   useEffect(() => {
     if (!session) return
     ;(async () => {
@@ -93,11 +100,10 @@ export default function WithdrawPage() {
     })()
   }, [session])
 
-  // ✅ Fetch PAY ID from Supabase
   useEffect(() => {
     if (!session) return
     ;(async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("payid")
         .select("payid")
         .eq("userid", session.user.id)
@@ -112,7 +118,6 @@ export default function WithdrawPage() {
     })()
   }, [session])
 
-  // Show Opay warning
   useEffect(() => {
     if (!session) return
     const t = setTimeout(() => setShowOpayWarning(true), 2000)
@@ -139,7 +144,7 @@ export default function WithdrawPage() {
     setError("")
     setIsValidating(true)
 
-    await new Promise(r => setTimeout(r, 4000))
+    await new Promise(r => setTimeout(r, 2000))
 
     const upper = payId.toUpperCase()
 
@@ -168,6 +173,21 @@ export default function WithdrawPage() {
       setIsValidating(false)
       return
     }
+
+    // ✅ Deduct from wallet
+    const newBalance = balance - withdrawAmount
+    const { error: updateErr } = await supabase
+      .from("wallet")
+      .update({ balance: newBalance })
+      .eq("userid", session.user.id)
+
+    if (updateErr) {
+      setError("Failed to update wallet. Try again.")
+      setIsValidating(false)
+      return
+    }
+
+    setBalance(newBalance)
 
     localStorage.setItem(
       "paygo-withdrawal-data",
@@ -216,30 +236,23 @@ export default function WithdrawPage() {
               value={accountName}
               onChange={e => setAccountName(e.target.value)}
               required
-              className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600"
+              className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-purple-200"
             />
           </div>
 
-          <div>
-            <div className="relative">
-              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="tel"
-                inputMode="numeric"
-                pattern="[0-9]{10}"
-                maxLength={10}
-                placeholder="Account Number (10 digits)"
-                value={accountNumber}
-                onChange={handleAccountNumberChange}
-                required
-                className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-orange-200 focus:outline-none focus:ring-2 focus:ring-purple-600"
-              />
-            </div>
-            {accountNumber.length > 0 && accountNumber.length < 10 && (
-              <p className="text-xs text-red-500 mt-1">
-                Account number must be 10 digits
-              </p>
-            )}
+          <div className="relative">
+            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="tel"
+              inputMode="numeric"
+              pattern="[0-9]{10}"
+              maxLength={10}
+              placeholder="Account Number (10 digits)"
+              value={accountNumber}
+              onChange={handleAccountNumberChange}
+              required
+              className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-orange-200"
+            />
           </div>
 
           <div className="relative">
@@ -247,7 +260,7 @@ export default function WithdrawPage() {
             <select
               value={bank}
               onChange={e => setBank(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600 appearance-none bg-gray-50"
+              className="w-full pl-10 pr-10 py-3 rounded-lg border-2 border-purple-200 bg-gray-50"
             >
               {NIGERIAN_BANKS.map(b => (
                 <option key={b} value={b}>
@@ -264,18 +277,18 @@ export default function WithdrawPage() {
             value={amount}
             onChange={e => setAmount(e.target.value)}
             required
-            className="w-full px-4 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600"
+            className="w-full px-4 py-3 rounded-lg border-2 border-purple-200"
           />
 
           <div>
             <input
               type="text"
-              placeholder={hasPayId ? "PAY ID Auto-filled" : "Enter PAY ID CODE (Buy PAY ID)"}
+              placeholder={hasPayId ? "PAY ID Auto-filled" : "Enter PAY ID CODE"}
               value={payId}
               onChange={e => setPayId(e.target.value)}
               required
               disabled={hasPayId}
-              className="w-full px-4 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600 uppercase placeholder:text-gray-400"
+              className="w-full px-4 py-3 rounded-lg border-2 border-purple-200 uppercase"
             />
             <div className="mt-1 flex justify-between items-center">
               {!hasPayId && (
@@ -315,7 +328,7 @@ export default function WithdrawPage() {
 
           <Button
             type="submit"
-            className="w-full py-6 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition-colors flex items-center justify-center"
+            className="w-full py-6 rounded-lg bg-purple-600 hover:bg-purple-700 text-white"
             disabled={isValidating}
           >
             {isValidating ? (
