@@ -261,11 +261,11 @@ export default async function AdminPage() {
               <span className="text-sm font-medium text-gray-700">Packages</span>
             </Link>
             <Link
-              href="/admin/transactions"
+              href="/admin/withdrawals"
               className="bg-gradient-to-br from-green-100 to-green-50 p-4 rounded-2xl shadow-lg border border-green-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center"
             >
               <div className="text-4xl mb-2 text-green-600 drop-shadow-md">💰</div>
-              <span className="text-sm font-medium text-gray-700">Transactions</span>
+              <span className="text-sm font-medium text-gray-700">Withdrawals</span>
             </Link>
             <Link
               href="/admin/history"

@@ -1,4 +1,3 @@
-// app/register/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -28,6 +27,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("")
   const [country, setCountry] = useState("")
   const [countries, setCountries] = useState<Country[]>([])
+  const [referralCode, setReferralCode] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -44,6 +44,19 @@ export default function RegisterPage() {
           setCountries(data || [])
         }
       })
+  }, [])
+
+  // Capture referral from URL
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const ref = url.searchParams.get("ref")
+    if (ref) {
+      localStorage.setItem("paygo-referral", ref)
+      setReferralCode(ref)
+    } else {
+      const storedRef = localStorage.getItem("paygo-referral")
+      if (storedRef) setReferralCode(storedRef)
+    }
   }, [])
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -76,15 +89,19 @@ export default function RegisterPage() {
     if (userId) {
       const { error: profileError } = await supabase
         .from("profiles")
-        .insert([{ id: userId, full_name: name, country_code: country }])
+        .insert([{
+          id: userId,
+          full_name: name,
+          country_code: country,
+          referred_by: referralCode || null,
+        }])
+
       if (profileError) {
         console.error("Profile insert error:", profileError)
-        // Non-fatal: proceed
       }
     }
 
     setLoading(false)
-    // 3. Redirect to check-your-email with email param
     router.push(`/check-your-email?email=${encodeURIComponent(email)}`)
   }
 
@@ -117,34 +134,18 @@ export default function RegisterPage() {
           className="h-14 rounded-full"
         />
 
-        {/* <Select value={country} onValueChange={setCountry} required>
+        <Select value={country} onValueChange={setCountry} required>
           <SelectTrigger className="h-14 rounded-full">
             <SelectValue placeholder="Select Country" />
           </SelectTrigger>
-          <SelectContent className="rounded-lg">
+          <SelectContent className="rounded-lg bg-white">
             {countries.map((c) => (
               <SelectItem key={c.code} value={c.code}>
                 {c.name}
               </SelectItem>
             ))}
           </SelectContent>
-        </Select> */}
-
-
-          <Select value={country} onValueChange={setCountry} required>
-  <SelectTrigger className="h-14 rounded-full">
-    <SelectValue placeholder="Select Country" />
-  </SelectTrigger>
-  <SelectContent className="rounded-lg bg-white"> {/* Added bg-white here */}
-    {countries.map((c) => (
-      <SelectItem key={c.code} value={c.code}>
-        {c.name}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
-
-
+        </Select>
 
         <Input
           type="password"
@@ -152,6 +153,13 @@ export default function RegisterPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          className="h-14 rounded-full"
+        />
+
+        <Input
+          placeholder="Referral Code (optional)"
+          value={referralCode}
+          onChange={(e) => setReferralCode(e.target.value)}
           className="h-14 rounded-full"
         />
 

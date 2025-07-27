@@ -13,6 +13,7 @@ import { NewMonthPopup } from "@/components/new-month-popup"
 import { FastPaymentPopup } from "@/components/fast-payment-popup"
 import { useAuth } from "@/app/providers"
 import { supabase } from "@/lib/supabase"
+import { ChevronRight } from "lucide-react" // Add this at the top if not already
 
 interface UserData {
   name: string
@@ -70,31 +71,44 @@ export default function DashboardPage() {
       const profilePicture = session.user.user_metadata?.avatar_url || undefined
 
       let balance = 0
-      let weeklyRewards = 0
+let weeklyRewards = 0
 
-      const { data: walletRow } = await supabase
-        .from("wallet")
-        .select("balance, weekly_rewards")
-        .eq("userid", session.user.id)
-        .maybeSingle()
+// 1. Fetch balance from wallet table
+const { data: walletRow } = await supabase
+  .from("wallet")
+  .select("balance")
+  .eq("userid", session.user.id)
+  .maybeSingle()
 
-      if (!walletRow) {
-        const { error: upsertErr } = await supabase.from("wallet").upsert(
-          {
-            userid: session.user.id,
-            balance: WELCOME_BONUS,
-            weekly_rewards: 0,
-          },
-          { onConflict: "userid" }
-        )
-        if (!upsertErr) {
-          balance = WELCOME_BONUS
-          weeklyRewards = 0
-        }
-      } else {
-        balance = Number(walletRow.balance) || 0
-        weeklyRewards = Number(walletRow.weekly_rewards) || 0
-      }
+if (!walletRow) {
+  const { error: upsertErr } = await supabase.from("wallet").upsert(
+    {
+      userid: session.user.id,
+      balance: WELCOME_BONUS,
+    },
+    { onConflict: "userid" }
+  )
+  if (!upsertErr) {
+    balance = WELCOME_BONUS
+  }
+} else {
+  balance = Number(walletRow.balance) || 0
+}
+
+// 2. ✅ Fetch weekly referral rewards from ReferralRewards
+const { data: rewardsData } = await supabase
+  .from("ReferralRewards")
+  .select("reward_amount")
+  .eq("referrer_id", session.user.id)
+  .eq("status", "pending") // You can change to .in("status", ["pending", "paid"]) for total earned
+
+if (rewardsData && rewardsData.length > 0) {
+  weeklyRewards = rewardsData.reduce(
+    (sum, reward) => sum + (reward.reward_amount || 0),
+    0
+  )
+}
+
 
       let hasPayId = false
       const { data: payRow } = await supabase
@@ -273,10 +287,17 @@ export default function DashboardPage() {
               )}
             </button>
           </div>
-          <div className="text-sm text-purple-200 mt-1">
-            <span className="font-medium">Weekly Rewards:</span>{" "}
-            {showBalance ? formatCurrency(userData.weeklyRewards) : "••••••••"}
-          </div>
+
+          <Link href="/rewards" title="View details">
+  <div className="text-sm text-purple-200 mt-1 flex items-center gap-1 hover:text-white cursor-pointer transition-all group">
+          <span className="font-medium">Weekly Rewards:</span>{" "}
+    <span>
+      {showBalance ? formatCurrency(userData.weeklyRewards) : "••••••••"}
+    </span>
+    <ChevronRight className="w-4 h-4 mt-0.5 opacity-70" />
+  </div>
+</Link>
+
           <div className="text-sm text-purple-200 mt-1">
             <span className="font-medium">Current Level:</span>{" "}
             {currentLevel ? (
@@ -285,6 +306,7 @@ export default function DashboardPage() {
               <span className="text-gray-300">None</span>
             )}
           </div>
+          
         </div>
 
         <div className="flex justify-between items-center mt-6">

@@ -2,7 +2,7 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import {
   ArrowLeft,
@@ -32,14 +32,12 @@ type ProfileRow = {
   email: string | null
 }
 
-export default async function HistoryPage() {
-  // Auth guard
+export default async function HistoryPage({ searchParams }: { searchParams: any }) {
   const session = await getServerSession(authOptions)
   if (!session || (session.user as any).role !== "ADMIN") {
     redirect("/auth/signin")
   }
 
-  /** 1) Get all transactions (NO joins) */
   const { data: txData, error: txErr } = await supabase
     .from<TxRow>("Transaction")
     .select("id, number, amount, createdAt, status, approved, userId, bankId")
@@ -47,16 +45,12 @@ export default async function HistoryPage() {
 
   if (txErr) {
     console.error("Error loading history:", txErr)
-    return (
-      <div className="p-4 bg-red-100 text-red-600 rounded-xl mx-4 my-2 shadow-sm border border-red-200">
-        Failed to load history: {txErr.message}
-      </div>
-    )
+    return <div className="p-4 text-red-600">Failed to load: {txErr.message}</div>
   }
 
   const transactions = txData ?? []
 
-  /** 2) Fetch profiles for referenced users */
+  // Join with profiles
   const userIds = Array.from(
     new Set(transactions.map(t => t.userId).filter(Boolean))
   ) as string[]
@@ -68,43 +62,41 @@ export default async function HistoryPage() {
       .select("id, full_name, email")
       .in("id", userIds)
 
-    if (profErr) {
-      console.error("Error loading profiles:", profErr)
-    } else if (profiles) {
+    if (!profErr && profiles) {
       userMap = Object.fromEntries(profiles.map(p => [p.id, p]))
     }
   }
 
-  /** 3) Enrich tx list with user info */
   const enriched = transactions.map(tx => {
-    const u = tx.userId ? userMap[tx.userId] : undefined
+    const u = userMap[tx.userId || ""] || {}
     return {
       ...tx,
       user: {
-        name: u?.full_name || "",
-        email: u?.email || "",
+        name: u.full_name || "Unknown",
+        email: u.email || "",
       },
     }
   })
 
-  /** 4) Stats */
+  // Pagination
+  const ITEMS_PER_PAGE = 10
+  const page = parseInt(searchParams?.page || "1", 10)
+  const totalPages = Math.ceil(enriched.length / ITEMS_PER_PAGE)
+  const paginated = enriched.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+
+  // Stats
   const totalTransactions = enriched.length
   const approvedTransactions = enriched.filter(tx => tx.approved).length
   const pendingTransactions = totalTransactions - approvedTransactions
   const totalAmount = enriched.reduce((sum, tx) => sum + (tx.amount || 0), 0)
-
   const uniqueUsers = new Set(enriched.map(tx => tx.userId).filter(Boolean)).size
-  // bankId may not exist; handle safely
-  const banksCount = enriched.some(tx => typeof tx.bankId !== "undefined")
-    ? new Set(enriched.map(tx => tx.bankId).filter(Boolean)).size
-    : 0
+  const banksCount = new Set(enriched.map(tx => tx.bankId).filter(Boolean)).size
 
   const formatNaira = (n: number) =>
     "₦" + n.toLocaleString("en-NG", { minimumFractionDigits: 0 })
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 pb-20">
-      {/* Header */}
       <header className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4 sticky top-0 z-50 shadow-md">
         <div className="flex items-center justify-between">
           <Link href="/admin" className="p-2 rounded-lg bg-white/10 hover:bg-white/20">
@@ -116,90 +108,19 @@ export default async function HistoryPage() {
       </header>
 
       <main className="p-4">
-        {/* Summary Cards - 2 rows of 3 columns */}
-        <div className="mb-6">
-          <div className="grid grid-cols-3 gap-3 mb-3">
-            {/* Total Txns */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border-b-2 border-purple-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 font-medium">Total Txns</p>
-                  <p className="text-lg font-bold text-purple-700 mt-1">
-                    {totalTransactions}
-                  </p>
-                </div>
-                <Clock className="h-5 w-5 text-purple-400" />
-              </div>
-            </div>
-            {/* Approved */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border-b-2 border-green-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 font-medium">Approved</p>
-                  <p className="text-lg font-bold text-green-600 mt-1">
-                    {approvedTransactions}
-                  </p>
-                </div>
-                <CheckCircle className="h-5 w-5 text-green-400" />
-              </div>
-            </div>
-            {/* Pending */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border-b-2 border-yellow-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 font-medium">Pending</p>
-                  <p className="text-lg font-bold text-yellow-600 mt-1">
-                    {pendingTransactions}
-                  </p>
-                </div>
-                <AlertCircle className="h-5 w-5 text-yellow-400" />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {/* Total Amount */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border-b-2 border-blue-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 font-medium">Total Amount</p>
-                  <p className="text-lg font-bold text-blue-600 mt-1">
-                    {formatNaira(totalAmount)}
-                  </p>
-                </div>
-                <DollarSign className="h-5 w-5 text-blue-400" />
-              </div>
-            </div>
-            {/* Users */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border-b-2 border-indigo-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 font-medium">Users</p>
-                  <p className="text-lg font-bold text-indigo-600 mt-1">
-                    {uniqueUsers}
-                  </p>
-                </div>
-                <User className="h-5 w-5 text-indigo-400" />
-              </div>
-            </div>
-            {/* Banks */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border-b-2 border-red-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 font-medium">Banks</p>
-                  <p className="text-lg font-bold text-red-600 mt-1">
-                    {banksCount || "-"}
-                  </p>
-                </div>
-                <Banknote className="h-5 w-5 text-red-400" />
-              </div>
-            </div>
-          </div>
+        {/* Summary Cards */}
+        <div className="mb-6 grid grid-cols-3 gap-3">
+          <SummaryCard label="Total Txns" value={totalTransactions} icon={<Clock />} color="purple" />
+          <SummaryCard label="Approved" value={approvedTransactions} icon={<CheckCircle />} color="green" />
+          <SummaryCard label="Pending" value={pendingTransactions} icon={<AlertCircle />} color="yellow" />
+          <SummaryCard label="Total Amount" value={formatNaira(totalAmount)} icon={<DollarSign />} color="blue" />
+          <SummaryCard label="Users" value={uniqueUsers} icon={<User />} color="indigo" />
+          <SummaryCard label="Banks" value={banksCount || "-"} icon={<Banknote />} color="red" />
         </div>
 
         {/* Transaction List */}
         <div className="space-y-3">
-          {enriched.map(tx => (
+          {paginated.map(tx => (
             <div
               key={tx.id}
               className="bg-white p-4 rounded-xl shadow-sm border border-gray-200/50"
@@ -225,7 +146,7 @@ export default async function HistoryPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-800">
-                      {tx.user?.name || tx.user?.email || "Unknown"}
+                      {tx.user.name || tx.user.email || "Unknown"}
                     </p>
                     <p className="text-xs text-gray-500">#{tx.number}</p>
                   </div>
@@ -258,38 +179,52 @@ export default async function HistoryPage() {
                 >
                   {tx.approved ? "Approved" : "Pending"}
                 </span>
-
-                <Link
-                  href={`/admin/transactions/${tx.id}`}
-                  className="text-xs px-3 py-1 text-purple-600 hover:bg-purple-50 rounded-lg"
-                >
-                  View
-                </Link>
               </div>
             </div>
           ))}
         </div>
-      </main>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 flex justify-around py-2">
-        <Link href="/admin" className="flex flex-col items-center p-1 text-purple-600">
-          <span className="text-xl">📊</span>
-          <span className="text-xs mt-1">Dashboard</span>
-        </Link>
-        <Link href="/admin/transactions" className="flex flex-col items-center p-1 text-gray-500">
-          <span className="text-xl">💳</span>
-          <span className="text-xs mt-1">Transactions</span>
-        </Link>
-        <Link href="/admin/history" className="flex flex-col items-center p-1 text-gray-500">
-          <span className="text-xl">🕒</span>
-          <span className="text-xs mt-1">History</span>
-        </Link>
-        <Link href="/admin/users" className="flex flex-col items-center p-1 text-gray-500">
-          <span className="text-xl">👥</span>
-          <span className="text-xs mt-1">Users</span>
-        </Link>
-      </nav>
+        {/* Pagination */}
+        <div className="flex justify-center gap-2 mt-6">
+          {Array.from({ length: totalPages }, (_, i) => (
+            <Link
+              key={i}
+              href={`/admin/history?page=${i + 1}`}
+              className={`px-3 py-1 rounded-full text-sm ${
+                i + 1 === page
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+            >
+              {i + 1}
+            </Link>
+          ))}
+        </div>
+      </main>
+    </div>
+  )
+}
+
+// Reusable summary card
+function SummaryCard({ label, value, icon, color }: any) {
+  const colorMap: any = {
+    purple: "border-purple-500 text-purple-700",
+    green: "border-green-500 text-green-600",
+    yellow: "border-yellow-500 text-yellow-600",
+    blue: "border-blue-500 text-blue-600",
+    indigo: "border-indigo-500 text-indigo-600",
+    red: "border-red-500 text-red-600",
+  }
+
+  return (
+    <div className={`bg-white p-3 rounded-xl shadow-sm border-b-2 ${colorMap[color]}`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-gray-500 font-medium">{label}</p>
+          <p className={`text-lg font-bold mt-1`}>{value}</p>
+        </div>
+        <div className={`${colorMap[color].split(" ")[1]}`}>{icon}</div>
+      </div>
     </div>
   )
 }
