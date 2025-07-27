@@ -1,62 +1,66 @@
-// app/reset-password/ResetPasswordContent.tsx
-"use client";
+"use client"
 
-import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import { Logo } from "@/components/logo";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useSearchParams, useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase"
+import { Logo } from "@/components/logo"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function ResetPasswordContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
-  // If no access_token in URL, redirect to login
+  const code = searchParams.get("code")
+
+  // Handle Supabase session exchange using the code
   useEffect(() => {
-    const token = searchParams.get("access_token");
-    if (!token) {
-      router.replace("/login");
+    if (!code) {
+      router.replace("/login")
+      return
     }
-  }, [searchParams, router]);
+
+    // Exchange the code for a session
+    supabase.auth
+      .exchangeCodeForSession(code)
+      .catch(() => router.replace("/login"))
+  }, [code, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setMessage(null);
+    e.preventDefault()
+    setError(null)
+    setMessage(null)
 
     if (!newPassword || !confirmPassword) {
-      setError("Please fill in both fields.");
-      return;
+      setError("Please fill in both fields.")
+      return
     }
     if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
+      setError("Passwords do not match.")
+      return
     }
 
-    setLoading(true);
+    setLoading(true)
     const { error: updateError } = await supabase.auth.updateUser({
       password: newPassword,
-    });
+    })
 
     if (updateError) {
-      setError(updateError.message);
-      setLoading(false);
-      return;
+      setError(updateError.message)
+      setLoading(false)
+      return
     }
 
-    setMessage(
-      "Password updated! You can now log in with your new password."
-    );
-    setLoading(false);
-    router.replace("/login");
-  };
+    setMessage("Password updated! You can now log in with your new password.")
+    setLoading(false)
+    setTimeout(() => router.replace("/login"), 2000)
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#f9f2f2]">
@@ -104,5 +108,5 @@ export default function ResetPasswordContent() {
         </Button>
       </form>
     </div>
-  );
+  )
 }
