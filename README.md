@@ -4,6 +4,7 @@ A secure and seamless wallet-powered payment system for Nigeria — built and ma
 
 🔗 Live App: [www.paygo.com.ng](https://www.paygo.com.ng)  
 🌐 Company: [www.sodienics.com](https://www.sodienics.com)
+    Whatsapp: +2348173217525
 
 ---
 
@@ -22,6 +23,7 @@ A secure and seamless wallet-powered payment system for Nigeria — built and ma
 
 🔗 Live App: [www.paygo.com.ng](https://www.paygo.com.ng)  
 🌐 Company: [www.sodienics.com](https://www.sodienics.com)
+   Whatsapp:  +2348173217525
 
 ---
 
