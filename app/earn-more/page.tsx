@@ -95,10 +95,13 @@ export default function EarnMorePage() {
         shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}`
         break
       case "instagram":
-        shareUrl = `https://www.instagram.com/` // Instagram does not support direct share via URL
+        shareUrl = `https://www.instagram.com/`
         break
       case "twitter":
         shareUrl = `https://twitter.com/intent/tweet?text=Join%20PayGo%20and%20earn%20₦5,000!%20Use%20my%20referral:%20${encodedLink}`
+        break
+      case "telegram":
+        shareUrl = `https://t.me/share/url?url=${encodedLink}&text=Join%20PayGo%20and%20earn%20₦5,000!`
         break
     }
 
@@ -212,6 +215,9 @@ export default function EarnMorePage() {
               </Button>
               <Button onClick={() => handleShare("twitter")} className="bg-sky-500 hover:bg-sky-600 text-white">
                 Twitter
+              </Button>
+              <Button onClick={() => handleShare("telegram")} className="bg-[#229ED9] hover:bg-[#1b8dbf] text-white col-span-2">
+                Telegram
               </Button>
             </div>
           </div>

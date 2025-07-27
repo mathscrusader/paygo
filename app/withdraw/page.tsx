@@ -33,9 +33,6 @@ const inactivePayIds = [
   "PAG-871TWN9QGBEY", "PAG-309YVF1CJXAT", "PAG-687RPE7NMZLU"
 ]
 
-const ACTIVE_PAY_ID = "PG-7474PAPAG-827ZKD2NJWQT"
-const validatePayIdCode = (code: string) => code === ACTIVE_PAY_ID
-
 export default function WithdrawPage() {
   const router = useRouter()
   const { session, loading } = useAuth()
@@ -44,7 +41,6 @@ export default function WithdrawPage() {
   const stabilizedRef = useRef(false)
 
   const [balance, setBalance] = useState<number>(0)
-
   const [accountName, setAccountName] = useState("")
   const [accountNumber, setAccountNumber] = useState("")
   const [bank, setBank] = useState(NIGERIAN_BANKS[0])
@@ -52,6 +48,7 @@ export default function WithdrawPage() {
 
   const [payId, setPayId] = useState("")
   const [hasPayId, setHasPayId] = useState(false)
+  const [userPayId, setUserPayId] = useState("")
 
   const [isValidating, setIsValidating] = useState(false)
   const [error, setError] = useState("")
@@ -111,6 +108,7 @@ export default function WithdrawPage() {
 
       if (data?.payid) {
         setPayId(data.payid)
+        setUserPayId(data.payid)
         setHasPayId(true)
       } else {
         setHasPayId(false)
@@ -144,19 +142,20 @@ export default function WithdrawPage() {
     setError("")
     setIsValidating(true)
 
-    await new Promise(r => setTimeout(r, 2000))
+    await new Promise(r => setTimeout(r, 800))
 
-    const upper = payId.toUpperCase()
+    const inputPayId = payId.toUpperCase().trim()
+    const dbPayId = userPayId.toUpperCase().trim()
 
-    if (inactivePayIds.includes(upper)) {
-      setInactivePayId(upper)
+    if (inactivePayIds.includes(inputPayId)) {
+      setInactivePayId(inputPayId)
       setIsValidating(false)
       setShowActivationPopup(true)
       return
     }
 
-    if (!validatePayIdCode(upper)) {
-      setError("Invalid code. Please buy PAY ID code to continue.")
+    if (!inputPayId || inputPayId !== dbPayId) {
+      setError("Invalid PAY ID. Please enter a valid code or buy one to continue.")
       setIsValidating(false)
       return
     }
@@ -174,7 +173,6 @@ export default function WithdrawPage() {
       return
     }
 
-    // ✅ Deduct from wallet
     const newBalance = balance - withdrawAmount
     const { error: updateErr } = await supabase
       .from("wallet")

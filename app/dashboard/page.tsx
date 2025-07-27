@@ -4,7 +4,7 @@ import type React from "react"
 import { useEffect, useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CreditCard } from "lucide-react"
+import { CreditCard, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { NotificationManager } from "@/components/notification-manager"
 import { PromoCarousel } from "@/components/promo-carousel"
@@ -13,7 +13,6 @@ import { NewMonthPopup } from "@/components/new-month-popup"
 import { FastPaymentPopup } from "@/components/fast-payment-popup"
 import { useAuth } from "@/app/providers"
 import { supabase } from "@/lib/supabase"
-import { ChevronRight } from "lucide-react" // Add this at the top if not already
 
 interface UserData {
   name: string
@@ -48,6 +47,7 @@ export default function DashboardPage() {
   const [showFastPaymentPopup, setShowFastPaymentPopup] = useState(false)
   const [showBalance, setShowBalance] = useState(true)
   const [currentLevel, setCurrentLevel] = useState<{ id: string; name: string } | null>(null)
+  const [unseenCount, setUnseenCount] = useState<number>(0)
 
   useEffect(() => {
     if (loading) return
@@ -71,44 +71,41 @@ export default function DashboardPage() {
       const profilePicture = session.user.user_metadata?.avatar_url || undefined
 
       let balance = 0
-let weeklyRewards = 0
+      let weeklyRewards = 0
 
-// 1. Fetch balance from wallet table
-const { data: walletRow } = await supabase
-  .from("wallet")
-  .select("balance")
-  .eq("userid", session.user.id)
-  .maybeSingle()
+      const { data: walletRow } = await supabase
+        .from("wallet")
+        .select("balance")
+        .eq("userid", session.user.id)
+        .maybeSingle()
 
-if (!walletRow) {
-  const { error: upsertErr } = await supabase.from("wallet").upsert(
-    {
-      userid: session.user.id,
-      balance: WELCOME_BONUS,
-    },
-    { onConflict: "userid" }
-  )
-  if (!upsertErr) {
-    balance = WELCOME_BONUS
-  }
-} else {
-  balance = Number(walletRow.balance) || 0
-}
+      if (!walletRow) {
+        const { error: upsertErr } = await supabase.from("wallet").upsert(
+          {
+            userid: session.user.id,
+            balance: WELCOME_BONUS,
+          },
+          { onConflict: "userid" }
+        )
+        if (!upsertErr) {
+          balance = WELCOME_BONUS
+        }
+      } else {
+        balance = Number(walletRow.balance) || 0
+      }
 
-// 2. ✅ Fetch weekly referral rewards from ReferralRewards
-const { data: rewardsData } = await supabase
-  .from("ReferralRewards")
-  .select("reward_amount")
-  .eq("referrer_id", session.user.id)
-  .eq("status", "pending") // You can change to .in("status", ["pending", "paid"]) for total earned
+      const { data: rewardsData } = await supabase
+        .from("ReferralRewards")
+        .select("reward_amount")
+        .eq("referrer_id", session.user.id)
+        .eq("status", "pending")
 
-if (rewardsData && rewardsData.length > 0) {
-  weeklyRewards = rewardsData.reduce(
-    (sum, reward) => sum + (reward.reward_amount || 0),
-    0
-  )
-}
-
+      if (rewardsData && rewardsData.length > 0) {
+        weeklyRewards = rewardsData.reduce(
+          (sum, reward) => sum + (reward.reward_amount || 0),
+          0
+        )
+      }
 
       let hasPayId = false
       const { data: payRow } = await supabase
@@ -127,7 +124,6 @@ if (rewardsData && rewardsData.length > 0) {
         profilePicture,
       })
 
-      // Get current level
       const { data: profileData } = await supabase
         .from("profiles")
         .select("upgrade_level_id")
@@ -142,6 +138,14 @@ if (rewardsData && rewardsData.length > 0) {
           .maybeSingle()
         if (levelData) setCurrentLevel(levelData)
       }
+
+      const { data: unseen } = await supabase
+        .from("Transaction")
+        .select("id")
+        .eq("userId", session.user.id)
+        .eq("viewed", false)
+
+      setUnseenCount(unseen?.length || 0)
 
       const welcomePopupShown = localStorage.getItem("paygo-welcome-popup-shown")
       if (!welcomePopupShown) {
@@ -216,10 +220,7 @@ if (rewardsData && rewardsData.length > 0) {
       <NotificationManager />
 
       {showWelcomePopup && userData && (
-        <WelcomePopup
-          userName={userData.name.split(" ")[0]}
-          onClose={handleCloseWelcomePopup}
-        />
+        <WelcomePopup userName={userData.name.split(" ")[0]} onClose={handleCloseWelcomePopup} />
       )}
       {showNewMonthPopup && <NewMonthPopup onClose={handleCloseNewMonthPopup} />}
       {showFastPaymentPopup && <FastPaymentPopup onClose={handleCloseFastPaymentPopup} />}
@@ -232,21 +233,14 @@ if (rewardsData && rewardsData.length > 0) {
         </div>
       </div>
 
-      {/* Wallet Card */}
       <div className="bg-purple-700 text-white rounded-xl p-5 shadow-lg mx-4">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-md overflow-hidden">
               {userData?.profilePicture ? (
-                <img
-                  src={userData.profilePicture}
-                  alt={userData.name}
-                  className="w-full h-full object-cover"
-                />
+                <img src={userData.profilePicture} alt={userData.name} className="w-full h-full object-cover" />
               ) : (
-                <span className="font-semibold text-xl text-purple-700">
-                  {userData?.name?.charAt(0)}
-                </span>
+                <span className="font-semibold text-xl text-purple-700">{userData?.name?.charAt(0)}</span>
               )}
             </div>
             <div>
@@ -254,10 +248,15 @@ if (rewardsData && rewardsData.length > 0) {
               <div className="text-sm text-gray-200">Welcome back!</div>
             </div>
           </div>
-          <Link href="/history">
+
+          <Link href="/transactions">
             <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full bg-purple-600 hover:bg-purple-500">
               <span className="text-lg">🔔</span>
-              <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />
+              {unseenCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
+                  {unseenCount}
+                </span>
+              )}
             </Button>
           </Link>
         </div>
@@ -265,14 +264,8 @@ if (rewardsData && rewardsData.length > 0) {
         <div className="mt-4">
           <div className="text-sm font-medium text-gray-200 mb-1">Your Balance</div>
           <div className="flex justify-between items-center">
-            <div className="text-3xl font-bold">
-              {formatCurrency(userData.balance)}
-            </div>
-            <button
-              onClick={() => setShowBalance(!showBalance)}
-              className="text-gray-200 hover:text-white"
-              aria-label="Toggle balance"
-            >
+            <div className="text-3xl font-bold">{formatCurrency(userData.balance)}</div>
+            <button onClick={() => setShowBalance(!showBalance)} className="text-gray-200 hover:text-white" aria-label="Toggle balance">
               {showBalance ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
@@ -289,14 +282,12 @@ if (rewardsData && rewardsData.length > 0) {
           </div>
 
           <Link href="/rewards" title="View details">
-  <div className="text-sm text-purple-200 mt-1 flex items-center gap-1 hover:text-white cursor-pointer transition-all group">
-          <span className="font-medium">Weekly Rewards:</span>{" "}
-    <span>
-      {showBalance ? formatCurrency(userData.weeklyRewards) : "••••••••"}
-    </span>
-    <ChevronRight className="w-4 h-4 mt-0.5 opacity-70" />
-  </div>
-</Link>
+            <div className="text-sm text-purple-200 mt-1 flex items-center gap-1 hover:text-white cursor-pointer transition-all group">
+              <span className="font-medium">Weekly Rewards:</span>{" "}
+              <span>{showBalance ? formatCurrency(userData.weeklyRewards) : "••••••••"}</span>
+              <ChevronRight className="w-4 h-4 mt-0.5 opacity-70" />
+            </div>
+          </Link>
 
           <div className="text-sm text-purple-200 mt-1">
             <span className="font-medium">Current Level:</span>{" "}
@@ -306,7 +297,6 @@ if (rewardsData && rewardsData.length > 0) {
               <span className="text-gray-300">None</span>
             )}
           </div>
-          
         </div>
 
         <div className="flex justify-between items-center mt-6">
