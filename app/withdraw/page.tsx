@@ -17,8 +17,7 @@ import { OpayWarningPopup } from "@/components/opay-warning-popup"
 import { useAuth } from "@/app/providers"
 import { supabase } from "@/lib/supabase"
 
-// Static Nigerian banks list (unchanged)
-const NIGERIAN_BANKS = [/* same list as before */ 
+const NIGERIAN_BANKS = [/* same list as before */
   "Access Bank","Citibank Nigeria","Ecobank Nigeria","Fidelity Bank","First Bank of Nigeria",
   "First City Monument Bank","Guaranty Trust Bank","Heritage Bank","Keystone Bank","Polaris Bank",
   "Stanbic IBTC Bank","Standard Chartered Bank","Sterling Bank","Union Bank of Nigeria",
@@ -38,13 +37,11 @@ const NIGERIAN_BANKS = [/* same list as before */
   "MTN MOMO PSB","NPF Microfinance Bank","Paga","Page Financials","Parkway-ReadyCash","PayCom"
 ]
 
-// Inactive PAY IDs list (unchanged)
 const inactivePayIds = [
   "PAG-827ZKD2NJWQT","PAG-193BHF9TXLMR","PAG-504JUE6AGPYD","PAG-738MQK8DLZNV",
   "PAG-962CRB3VEXJO","PAG-245LDH4SMKPU","PAG-871TWN9QGBEY","PAG-309YVF1CJXAT","PAG-687RPE7NMZLU"
 ]
 
-// Validation for active PAY ID
 const ACTIVE_PAY_ID = "PG-7474PAPAG-827ZKD2NJWQT"
 const validatePayIdCode = (code: string) => code === ACTIVE_PAY_ID
 
@@ -57,28 +54,25 @@ export default function WithdrawPage() {
   const router = useRouter()
   const { session, loading } = useAuth()
 
-  // Auth grace redirect
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stabilizedRef = useRef(false)
 
-  // Local user fallback
   const [localUser, setLocalUser] = useState<LocalUser | null>(null)
 
-  // Form state
   const [accountName, setAccountName] = useState("")
   const [accountNumber, setAccountNumber] = useState("")
   const [bank, setBank] = useState("Access Bank")
   const [amount, setAmount] = useState("")
-  const [payId, setPayId] = useState("")
 
-  // UI state
+  const [payId, setPayId] = useState("")
+  const [hasPayId, setHasPayId] = useState(false)
+
   const [isValidating, setIsValidating] = useState(false)
   const [error, setError] = useState("")
   const [showActivationPopup, setShowActivationPopup] = useState(false)
   const [inactivePayId, setInactivePayId] = useState("")
   const [showOpayWarning, setShowOpayWarning] = useState(false)
 
-  /** Graceful auth guard */
   useEffect(() => {
     if (loading) return
     if (stabilizedRef.current) return
@@ -102,7 +96,6 @@ export default function WithdrawPage() {
     }
   }, [loading, session, router])
 
-  /** Load local fallback user (balance etc.) once session exists */
   useEffect(() => {
     if (!session) return
     const raw = localStorage.getItem("paygo-user")
@@ -118,11 +111,29 @@ export default function WithdrawPage() {
     }
   }, [session])
 
-  /** Timed Opay warning */
   useEffect(() => {
     if (!session) return
     const t = setTimeout(() => setShowOpayWarning(true), 2000)
     return () => clearTimeout(t)
+  }, [session])
+
+  // 🟣 NEW: Fetch PAY ID for user
+  useEffect(() => {
+    if (!session) return
+    ;(async () => {
+      const { data, error } = await supabase
+        .from("payid")
+        .select("payid")
+        .eq("userid", session.user.id)
+        .maybeSingle()
+
+      if (data?.payid) {
+        setPayId(data.payid)
+        setHasPayId(true)
+      } else {
+        setHasPayId(false)
+      }
+    })()
   }, [session])
 
   const formatCurrency = (amt: number) =>
@@ -146,12 +157,10 @@ export default function WithdrawPage() {
     setError("")
     setIsValidating(true)
 
-    // Simulate PAY ID validation delay
     await new Promise(r => setTimeout(r, 4000))
 
     const upper = payId.toUpperCase()
 
-    // Inactive path
     if (inactivePayIds.includes(upper)) {
       setInactivePayId(upper)
       setIsValidating(false)
@@ -159,7 +168,6 @@ export default function WithdrawPage() {
       return
     }
 
-    // Wrong code
     if (!validatePayIdCode(upper)) {
       setError("Invalid code. Please buy PAY ID code to continue.")
       setIsValidating(false)
@@ -179,7 +187,6 @@ export default function WithdrawPage() {
       return
     }
 
-    // Persist to temp local storage for next page (until API implemented)
     localStorage.setItem(
       "paygo-withdrawal-data",
       JSON.stringify({
@@ -199,7 +206,6 @@ export default function WithdrawPage() {
     router.push(`/activate-pay-id?payId=${inactivePayId}`)
   }
 
-  /** Render states */
   if (loading || (session && !localUser && !stabilizedRef.current)) {
     return <div className="p-6 text-center">Loading...</div>
   }
@@ -215,7 +221,6 @@ export default function WithdrawPage() {
 
   return (
     <div className="min-h-screen pb-6 bg-white">
-      {/* Header */}
       <div className="flex items-center p-4 bg-purple-600 text-white">
         <Link href="/dashboard" className="flex items-center gap-2">
           <ArrowLeft className="h-5 w-5" />
@@ -223,13 +228,11 @@ export default function WithdrawPage() {
         </Link>
       </div>
 
-      {/* Content */}
       <div className="p-4 flex-1">
         <h2 className="text-2xl font-bold mb-4">Bank Details</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Account Name */}
-            <div className="relative">
+          <div className="relative">
             <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
@@ -241,7 +244,6 @@ export default function WithdrawPage() {
             />
           </div>
 
-          {/* Account Number */}
           <div>
             <div className="relative">
               <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -264,7 +266,6 @@ export default function WithdrawPage() {
             )}
           </div>
 
-          {/* Bank Select */}
           <div className="relative">
             <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5 z-10" />
             <select
@@ -281,35 +282,35 @@ export default function WithdrawPage() {
             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-purple-600" />
           </div>
 
-          {/* Amount */}
-          <div>
-            <input
-              type="number"
-              placeholder="Amount"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600"
-            />
-          </div>
+          <input
+            type="number"
+            placeholder="Amount"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            required
+            className="w-full px-4 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600"
+          />
 
-          {/* PAY ID */}
+          {/* PAY ID section with auto-fill logic */}
           <div>
             <input
               type="text"
-              placeholder="PAY ID CODE (Buy PAY ID)"
+              placeholder={hasPayId ? "PAY ID Auto-filled" : "Enter PAY ID CODE (Buy PAY ID)"}
               value={payId}
               onChange={e => setPayId(e.target.value)}
               required
-              className="w-full px-4 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600 uppercase"
+              disabled={hasPayId}
+              className="w-full px-4 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600 uppercase placeholder:text-gray-400"
             />
             <div className="mt-1 flex justify-between items-center">
-              <Link
-                href="/buy-pay-id"
-                className="text-purple-600 text-sm hover:underline"
-              >
-                Buy PAY ID code
-              </Link>
+              {!hasPayId && (
+                <Link
+                  href="/buy-pay-id"
+                  className="text-purple-600 text-sm hover:underline"
+                >
+                  Buy PAY ID code
+                </Link>
+              )}
               <Link
                 href="/withdraw/how-to"
                 className="text-blue-600 text-sm hover:underline"
@@ -317,9 +318,13 @@ export default function WithdrawPage() {
                 How to withdraw
               </Link>
             </div>
+            {hasPayId && (
+              <p className="text-xs text-green-600 mt-2">
+                ✓ PAY ID activated and ready to use
+              </p>
+            )}
           </div>
 
-          {/* Error */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start">
               <AlertCircle className="h-5 w-5 text-red-500 mr-2 mt-0.5 shrink-0" />
@@ -327,14 +332,12 @@ export default function WithdrawPage() {
             </div>
           )}
 
-          {/* Balance */}
           <div className="py-2">
             <p className="text-lg font-medium">
               Available Balance: {formatCurrency(localUser.balance ?? 0)}
             </p>
           </div>
 
-          {/* Submit */}
           <Button
             type="submit"
             className="w-full py-6 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition-colors flex items-center justify-center"
@@ -352,7 +355,6 @@ export default function WithdrawPage() {
         </form>
       </div>
 
-      {/* PAY ID Activation Popup */}
       {showActivationPopup && (
         <PayIdActivationPopup
           payId={inactivePayId}
@@ -360,8 +362,6 @@ export default function WithdrawPage() {
           onActivate={handleActivatePayId}
         />
       )}
-
-      {/* Opay Warning Popup */}
       {showOpayWarning && (
         <OpayWarningPopup onClose={() => setShowOpayWarning(false)} />
       )}
