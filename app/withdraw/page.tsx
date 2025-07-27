@@ -17,38 +17,24 @@ import { OpayWarningPopup } from "@/components/opay-warning-popup"
 import { useAuth } from "@/app/providers"
 import { supabase } from "@/lib/supabase"
 
-const NIGERIAN_BANKS = [/* same list as before */
-  "Access Bank","Citibank Nigeria","Ecobank Nigeria","Fidelity Bank","First Bank of Nigeria",
-  "First City Monument Bank","Guaranty Trust Bank","Heritage Bank","Keystone Bank","Polaris Bank",
-  "Stanbic IBTC Bank","Standard Chartered Bank","Sterling Bank","Union Bank of Nigeria",
-  "United Bank for Africa","Unity Bank","Wema Bank","Zenith Bank","Jaiz Bank","Providus Bank",
-  "Titan Trust Bank","Globus Bank","SunTrust Bank","Parallex Bank","Premium Trust Bank",
-  "Optimus Bank","PalmPay","Kuda Bank","VFD Microfinance Bank","Moniepoint Microfinance Bank",
-  "Opay Digital Services","Palmpay","Rubies Microfinance Bank","Sparkle Microfinance Bank",
-  "TAJ Bank","TCF Microfinance Bank","Titan Trust Bank","VFD Microfinance Bank","Zenith Bank",
-  "Abbey Mortgage Bank","Above Only Microfinance Bank","Accion Microfinance Bank",
-  "Ahmadu Bello University Microfinance Bank","Airtel Smartcash PSB","Alphakapital Microfinance Bank",
-  "Amju Unique Microfinance Bank","CEMCS Microfinance Bank","Coronation Merchant Bank",
-  "Ekondo Microfinance Bank","Eyowo","Fairmoney Microfinance Bank","Firmus Microfinance Bank",
-  "FSDH Merchant Bank","Gateway Mortgage Bank","Goodnews Microfinance Bank","Greenwich Merchant Bank",
-  "Hackman Microfinance Bank","Hasal Microfinance Bank","HopePSB","Ibile Microfinance Bank",
-  "Infinity Microfinance Bank","Lagos Building Investment Company","Links Microfinance Bank",
-  "Living Trust Mortgage Bank","Lotus Bank","Mayfair Microfinance Bank","Mint Microfinance Bank",
-  "MTN MOMO PSB","NPF Microfinance Bank","Paga","Page Financials","Parkway-ReadyCash","PayCom"
+const NIGERIAN_BANKS = [
+  "Access Bank", "Citibank", "Ecobank", "Fidelity Bank", "First Bank", "FCMB",
+  "GTBank", "Heritage Bank", "Keystone Bank", "Polaris Bank", "Stanbic IBTC",
+  "Sterling Bank", "Union Bank", "UBA", "Unity Bank", "Wema Bank", "Zenith Bank",
+  "Kuda Bank", "Opay", "Moniepoint", "VFD MFB", "Globus Bank", "Suntrust Bank",
+  "Taj Bank", "Rubies Bank", "Sparkle", "Mint Bank", "Eyowo", "FairMoney",
+  "PalmPay", "Page Financials", "Carbon", "Providus Bank", "Jaiz Bank",
+  "Parallex Bank", "Lotus Bank", "Hope PSB", "MTN MoMo", "Airtel Smartcash"
 ]
 
 const inactivePayIds = [
-  "PAG-827ZKD2NJWQT","PAG-193BHF9TXLMR","PAG-504JUE6AGPYD","PAG-738MQK8DLZNV",
-  "PAG-962CRB3VEXJO","PAG-245LDH4SMKPU","PAG-871TWN9QGBEY","PAG-309YVF1CJXAT","PAG-687RPE7NMZLU"
+  "PAG-827ZKD2NJWQT", "PAG-193BHF9TXLMR", "PAG-504JUE6AGPYD",
+  "PAG-738MQK8DLZNV", "PAG-962CRB3VEXJO", "PAG-245LDH4SMKPU",
+  "PAG-871TWN9QGBEY", "PAG-309YVF1CJXAT", "PAG-687RPE7NMZLU"
 ]
 
 const ACTIVE_PAY_ID = "PG-7474PAPAG-827ZKD2NJWQT"
 const validatePayIdCode = (code: string) => code === ACTIVE_PAY_ID
-
-interface LocalUser {
-  balance: number
-  [k: string]: any
-}
 
 export default function WithdrawPage() {
   const router = useRouter()
@@ -57,11 +43,11 @@ export default function WithdrawPage() {
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stabilizedRef = useRef(false)
 
-  const [localUser, setLocalUser] = useState<LocalUser | null>(null)
+  const [balance, setBalance] = useState<number>(0)
 
   const [accountName, setAccountName] = useState("")
   const [accountNumber, setAccountNumber] = useState("")
-  const [bank, setBank] = useState("Access Bank")
+  const [bank, setBank] = useState(NIGERIAN_BANKS[0])
   const [amount, setAmount] = useState("")
 
   const [payId, setPayId] = useState("")
@@ -91,6 +77,7 @@ export default function WithdrawPage() {
     } else {
       stabilizedRef.current = true
     }
+
     return () => {
       if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current)
     }
@@ -98,30 +85,25 @@ export default function WithdrawPage() {
 
   useEffect(() => {
     if (!session) return
-    const raw = localStorage.getItem("paygo-user")
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw)
-        setLocalUser(parsed)
-      } catch {
-        setLocalUser({ balance: 0 })
+    ;(async () => {
+      const { data: walletRow } = await supabase
+        .from("wallet")
+        .select("balance")
+        .eq("userid", session.user.id)
+        .maybeSingle()
+
+      if (walletRow?.balance !== undefined) {
+        setBalance(Number(walletRow.balance))
+      } else {
+        setBalance(0)
       }
-    } else {
-      setLocalUser({ balance: 0 })
-    }
+    })()
   }, [session])
 
-  useEffect(() => {
-    if (!session) return
-    const t = setTimeout(() => setShowOpayWarning(true), 2000)
-    return () => clearTimeout(t)
-  }, [session])
-
-  // 🟣 NEW: Fetch PAY ID for user
   useEffect(() => {
     if (!session) return
     ;(async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("payid")
         .select("payid")
         .eq("userid", session.user.id)
@@ -134,6 +116,12 @@ export default function WithdrawPage() {
         setHasPayId(false)
       }
     })()
+  }, [session])
+
+  useEffect(() => {
+    if (!session) return
+    const t = setTimeout(() => setShowOpayWarning(true), 2000)
+    return () => clearTimeout(t)
   }, [session])
 
   const formatCurrency = (amt: number) =>
@@ -153,11 +141,10 @@ export default function WithdrawPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!localUser) return
     setError("")
     setIsValidating(true)
 
-    await new Promise(r => setTimeout(r, 4000))
+    await new Promise(r => setTimeout(r, 2000))
 
     const upper = payId.toUpperCase()
 
@@ -181,11 +168,26 @@ export default function WithdrawPage() {
       return
     }
 
-    if (withdrawAmount > (localUser.balance ?? 0)) {
+    if (withdrawAmount > balance) {
       setError("Insufficient balance.")
       setIsValidating(false)
       return
     }
+
+    // ✅ Deduct from wallet
+    const newBalance = balance - withdrawAmount
+    const { error: updateErr } = await supabase
+      .from("wallet")
+      .update({ balance: newBalance })
+      .eq("userid", session.user.id)
+
+    if (updateErr) {
+      setError("Failed to update wallet. Try again.")
+      setIsValidating(false)
+      return
+    }
+
+    setBalance(newBalance)
 
     localStorage.setItem(
       "paygo-withdrawal-data",
@@ -206,17 +208,11 @@ export default function WithdrawPage() {
     router.push(`/activate-pay-id?payId=${inactivePayId}`)
   }
 
-  if (loading || (session && !localUser && !stabilizedRef.current)) {
+  if (loading || (session && !stabilizedRef.current)) {
     return <div className="p-6 text-center">Loading...</div>
   }
   if (!session && stabilizedRef.current) {
     return <div className="p-6 text-center">Redirecting…</div>
-  }
-  if (!session) {
-    return <div className="p-6 text-center">Loading...</div>
-  }
-  if (!localUser) {
-    return <div className="p-6 text-center">Preparing...</div>
   }
 
   return (
@@ -240,30 +236,23 @@ export default function WithdrawPage() {
               value={accountName}
               onChange={e => setAccountName(e.target.value)}
               required
-              className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600"
+              className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-purple-200"
             />
           </div>
 
-          <div>
-            <div className="relative">
-              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="tel"
-                inputMode="numeric"
-                pattern="[0-9]{10}"
-                maxLength={10}
-                placeholder="Account Number (10 digits)"
-                value={accountNumber}
-                onChange={handleAccountNumberChange}
-                required
-                className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-orange-200 focus:outline-none focus:ring-2 focus:ring-purple-600"
-              />
-            </div>
-            {accountNumber.length > 0 && accountNumber.length < 10 && (
-              <p className="text-xs text-red-500 mt-1">
-                Account number must be 10 digits
-              </p>
-            )}
+          <div className="relative">
+            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="tel"
+              inputMode="numeric"
+              pattern="[0-9]{10}"
+              maxLength={10}
+              placeholder="Account Number (10 digits)"
+              value={accountNumber}
+              onChange={handleAccountNumberChange}
+              required
+              className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-orange-200"
+            />
           </div>
 
           <div className="relative">
@@ -271,7 +260,7 @@ export default function WithdrawPage() {
             <select
               value={bank}
               onChange={e => setBank(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600 appearance-none bg-gray-50"
+              className="w-full pl-10 pr-10 py-3 rounded-lg border-2 border-purple-200 bg-gray-50"
             >
               {NIGERIAN_BANKS.map(b => (
                 <option key={b} value={b}>
@@ -288,19 +277,18 @@ export default function WithdrawPage() {
             value={amount}
             onChange={e => setAmount(e.target.value)}
             required
-            className="w-full px-4 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600"
+            className="w-full px-4 py-3 rounded-lg border-2 border-purple-200"
           />
 
-          {/* PAY ID section with auto-fill logic */}
           <div>
             <input
               type="text"
-              placeholder={hasPayId ? "PAY ID Auto-filled" : "Enter PAY ID CODE (Buy PAY ID)"}
+              placeholder={hasPayId ? "PAY ID Auto-filled" : "Enter PAY ID CODE"}
               value={payId}
               onChange={e => setPayId(e.target.value)}
               required
               disabled={hasPayId}
-              className="w-full px-4 py-3 rounded-lg border-2 border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-600 uppercase placeholder:text-gray-400"
+              className="w-full px-4 py-3 rounded-lg border-2 border-purple-200 uppercase"
             />
             <div className="mt-1 flex justify-between items-center">
               {!hasPayId && (
@@ -334,13 +322,13 @@ export default function WithdrawPage() {
 
           <div className="py-2">
             <p className="text-lg font-medium">
-              Available Balance: {formatCurrency(localUser.balance ?? 0)}
+              Available Balance: {formatCurrency(balance)}
             </p>
           </div>
 
           <Button
             type="submit"
-            className="w-full py-6 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition-colors flex items-center justify-center"
+            className="w-full py-6 rounded-lg bg-purple-600 hover:bg-purple-700 text-white"
             disabled={isValidating}
           >
             {isValidating ? (
