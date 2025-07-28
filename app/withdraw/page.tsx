@@ -185,6 +185,27 @@ export default function WithdrawPage() {
       return
     }
 
+    const { error: insertErr } = await supabase.from("withdrawals").insert([
+  {
+    user_id: session.user.id,
+    amount: withdrawAmount,
+    account_name: accountName,
+    account_number: accountNumber,
+    bank_name: bank,
+    method: "bank"
+  }
+])
+
+
+    if (insertErr) {
+  console.error("SUPABASE INSERT ERROR:", insertErr); // 👈 this will help us see the real issue
+  setError("Withdrawal request failed. Please try again.")
+  setIsValidating(false)
+  return
+}
+
+
+
     setBalance(newBalance)
 
     localStorage.setItem(

@@ -1,105 +1,48 @@
-// app/admin/page.tsx
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import PendingTransactions from "@/components/PendingTransactions";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export default async function AdminPage() {
-  // Auth protect
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any).role !== "ADMIN") {
     redirect("/auth/signin");
   }
 
-  // ---------- Pending list ----------
-  let transactions: any[] = [];
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("Transaction")
-      .select(
-        `
-        id,
-        userId,
-        number,
-        amount,
-        status,
-        approved,
-        createdAt,
-        type,
-        referenceId,
-        evidenceUrl,
-        bankId,
-        meta,
-        email:meta->>email,
-        full_name:meta->>fullName
-      `
-      )
-      .eq("approved", false)
-      .order("createdAt", { ascending: false });
-
-    if (error) throw error;
-    transactions = data ?? [];
-  } catch (e: any) {
-    console.error("Error loading pending transactions:", e);
-    return (
-      <div className="p-4 bg-red-500/10 text-red-600 rounded-xl mx-4 my-2 backdrop-blur-sm border border-red-500/20 shadow-lg">
-        Failed to load transactions: {e.message}
-      </div>
-    );
-  }
-
-  // ---------- Stats ----------
-  // Head-only counts
   const [totalTxRes, pendingTxRes, approvedTxRes] = await Promise.all([
     supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true }),
-    supabaseAdmin
-      .from("Transaction")
-      .select("id", { count: "exact", head: true })
-      .eq("approved", false),
-    supabaseAdmin
-      .from("Transaction")
-      .select("id", { count: "exact", head: true })
-      .eq("approved", true),
+    supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true }).eq("approved", false),
+    supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true }).eq("approved", true),
   ]);
 
   const totalTransactions = totalTxRes.count ?? 0;
   const pendingCount = pendingTxRes.count ?? 0;
   const approvedCount = approvedTxRes.count ?? 0;
 
-  // Today
   let todayCount = 0;
   try {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-
-    const { count, error } = await supabaseAdmin
+    const { count } = await supabaseAdmin
       .from("Transaction")
       .select("id", { count: "exact", head: true })
       .gte("createdAt", startOfDay.toISOString());
-    if (error) throw error;
     todayCount = count ?? 0;
-  } catch (e: any) {
-    console.error("Error counting today's transactions:", e);
-  }
+  } catch {}
 
-  // Aggregation in JS
-  const { data: aggRows, error: aggErr } = await supabaseAdmin
+  const { data: aggRows } = await supabaseAdmin
     .from("Transaction")
     .select("amount, status, approved, type");
-  if (aggErr) console.error("Aggregation fetch error:", aggErr);
 
   let sumPending = 0;
   let sumApproved = 0;
   const byType: Record<string, { count: number; total: number }> = {};
-
   if (aggRows) {
     for (const r of aggRows) {
       const status = (r.status || "").toLowerCase();
       if (status === "pending") sumPending += r.amount ?? 0;
       if (r.approved) sumApproved += r.amount ?? 0;
-
       const t = r.type ?? "unknown";
       if (!byType[t]) byType[t] = { count: 0, total: 0 };
       byType[t].count += 1;
@@ -107,21 +50,31 @@ export default async function AdminPage() {
     }
   }
 
-  // Users
   let totalUsers = 0;
   try {
-    const { count, error } = await supabaseAdmin
+    const { count } = await supabaseAdmin
       .from("profiles")
       .select("id", { count: "exact", head: true });
-    if (error) throw error;
     totalUsers = count ?? 0;
-  } catch (e: any) {
-    console.error("Error counting users:", e);
-  }
+  } catch {}
 
-  const approvalRate = totalTransactions
-    ? Math.round((approvedCount / totalTransactions) * 100)
-    : 0;
+  const approvalRate = totalTransactions ? Math.round((approvedCount / totalTransactions) * 100) : 0;
+
+  // 🔴 PAY ID + PACKAGES NOTIFICATIONS
+  const [{ count: payIdNotificationCount }, { count: packageNotificationCount }] = await Promise.all([
+    supabaseAdmin
+      .from("Transaction")
+      .select("id", { count: "exact", head: true })
+      .eq("type", "activation")
+      .eq("status", "PENDING")
+      .eq("approved", false),
+    supabaseAdmin
+      .from("Transaction")
+      .select("id", { count: "exact", head: true })
+      .eq("type", "upgrade")
+      .eq("status", "PENDING")
+      .eq("approved", false),
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 pb-24">
@@ -159,10 +112,9 @@ export default async function AdminPage() {
 
       {/* Main */}
       <main className="p-4 max-w-6xl mx-auto">
-        {/* Top Stats */}
+        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {/* Pending */}
-          <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-purple-500 transform hover:-translate-y-1 transition-transform">
+          <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-purple-500">
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-gray-500 font-medium">Pending</p>
@@ -175,8 +127,7 @@ export default async function AdminPage() {
             </p>
           </div>
 
-          {/* Today's Txns */}
-          <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-blue-500 transform hover:-translate-y-1 transition-transform">
+          <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-blue-500">
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-gray-500 font-medium">Today's Txns</p>
@@ -186,8 +137,7 @@ export default async function AdminPage() {
             </div>
           </div>
 
-          {/* Total Txns */}
-          <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-indigo-500 transform hover:-translate-y-1 transition-transform">
+          <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-indigo-500">
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-gray-500 font-medium">Total Txns</p>
@@ -200,8 +150,7 @@ export default async function AdminPage() {
             </p>
           </div>
 
-          {/* Approval Rate */}
-          <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-yellow-500 transform hover:-translate-y-1 transition-transform">
+          <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-yellow-500">
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-gray-500 font-medium">Approval Rate</p>
@@ -212,17 +161,15 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        {/* By Type */}
+        {/* Transactions by Type */}
         {Object.keys(byType).length > 0 && (
           <>
-            <h2 className="text-lg font-bold text-gray-800 mb-4 ml-1">
-              Transactions by Type
-            </h2>
+            <h2 className="text-lg font-bold text-gray-800 mb-4 ml-1">Transactions by Type</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {Object.entries(byType).map(([t, v]) => (
                 <div
                   key={t}
-                  className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-gray-300 transform hover:-translate-y-1 transition-transform"
+                  className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-gray-300"
                 >
                   <div className="flex justify-between items-center">
                     <div>
@@ -246,123 +193,41 @@ export default async function AdminPage() {
         <div className="mb-8">
           <h2 className="text-lg font-bold text-gray-800 mb-4 ml-1">Quick Actions</h2>
           <div className="grid grid-cols-3 gap-4">
-            <Link
-              href="/admin/payid"
-              className="bg-gradient-to-br from-purple-100 to-purple-50 p-4 rounded-2xl shadow-lg border border-purple-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center"
-            >
-              <div className="text-4xl mb-2 text-purple-600 drop-shadow-md">🆔</div>
-              <span className="text-sm font-medium text-gray-700">PAY IDs</span>
-            </Link>
-            <Link
-              href="/admin/packages"
-              className="bg-gradient-to-br from-blue-100 to-blue-50 p-4 rounded-2xl shadow-lg border border-blue-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center"
-            >
-              <div className="text-4xl mb-2 text-blue-600 drop-shadow-md">📦</div>
-              <span className="text-sm font-medium text-gray-700">Packages</span>
-            </Link>
-            <Link
-              href="/admin/withdrawals"
-              className="bg-gradient-to-br from-green-100 to-green-50 p-4 rounded-2xl shadow-lg border border-green-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center"
-            >
-              <div className="text-4xl mb-2 text-green-600 drop-shadow-md">💰</div>
-              <span className="text-sm font-medium text-gray-700">Withdrawals</span>
-            </Link>
-            <Link
-              href="/admin/history"
-              className="bg-gradient-to-br from-yellow-100 to-yellow-50 p-4 rounded-2xl shadow-lg border border-yellow-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center"
-            >
-              <div className="text-4xl mb-2 text-yellow-600 drop-shadow-md">🕒</div>
-              <span className="text-sm font-medium text-gray-700">History</span>
-            </Link>
-            <Link
-              href="/admin/earn"
-              className="bg-gradient-to-br from-red-100 to-red-50 p-4 rounded-2xl shadow-lg border border-red-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center"
-            >
-              <div className="text-4xl mb-2 text-red-600 drop-shadow-md">💸</div>
-              <span className="text-sm font-medium text-gray-700">Earn</span>
-            </Link>
-            <Link
-              href="/admin/users"
-              className="bg-gradient-to-br from-indigo-100 to-indigo-50 p-4 rounded-2xl shadow-lg border border-indigo-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center"
-            >
-              <div className="text-4xl mb-2 text-indigo-600 drop-shadow-md">👥</div>
-              <span className="text-sm font-medium text-gray-700">Users</span>
-            </Link>
-            <Link
-              href="/admin/banks"
-              className="bg-gradient-to-br from-cyan-100 to-cyan-50 p-4 rounded-2xl shadow-lg border border-cyan-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center"
-            >
-              <div className="text-4xl mb-2 text-cyan-600 drop-shadow-md">🏦</div>
-              <span className="text-sm font-medium text-gray-700">Banks</span>
-            </Link>
-            <Link
-              href="/admin/currency"
-              className="bg-gradient-to-br from-orange-100 to-orange-50 p-4 rounded-2xl shadow-lg border border-orange-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center"
-            >
-              <div className="text-4xl mb-2 text-orange-600 drop-shadow-md">💱</div>
-              <span className="text-sm font-medium text-gray-700">Currency</span>
-            </Link>
-            <Link
-              href="/admin/promotion"
-              className="bg-gradient-to-br from-pink-100 to-pink-50 p-4 rounded-2xl shadow-lg border border-pink-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center"
-            >
-              <div className="text-4xl mb-2 text-pink-600 drop-shadow-md">🎁</div>
-              <span className="text-sm font-medium text-gray-700">Promotion</span>
-            </Link>
-          </div>
-        </div>
+            {["payid","packages","withdrawals","history","earn","users","banks","currency","promotion"].map((href, i) => {
+              const icons = ["🆔","📦","💰","🕒","💸","👥","🏦","💱","🎁"];
+              const labels = ["PAY IDs","Packages","Withdrawals","History","Earn","Users","Banks","Currency","Promotion"];
+              const colors = ["purple","blue","green","yellow","red","indigo","cyan","orange","pink"];
 
-        {/* Pending Transactions Table */}
-        <div className="bg-white/90 rounded-2xl shadow-2xl overflow-hidden border border-gray-200/50">
-          <div className="px-5 py-4 border-b border-gray-200/50 bg-gradient-to-r from-purple-50 to-blue-50">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-bold text-gray-800">Pending Transactions</h2>
-                <p className="text-xs text-gray-500">{pendingCount} awaiting approval</p>
-              </div>
-              <Link
-                href="/admin/history"
-                className="text-purple-600 text-sm font-medium hover:underline"
-              >
-                View All →
-              </Link>
-            </div>
+              const badgeCount =
+                href === "payid"
+                  ? payIdNotificationCount
+                  : href === "packages"
+                  ? packageNotificationCount
+                  : 0;
+
+              return (
+                <Link
+                  key={href}
+                  href={`/admin/${href}`}
+                  className={`bg-gradient-to-br from-${colors[i]}-100 to-${colors[i]}-50 p-4 rounded-2xl shadow-lg border border-${colors[i]}-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center`}
+                >
+                  <div className="relative">
+                    <div className={`text-4xl mb-2 text-${colors[i]}-600 drop-shadow-md`}>
+                      {icons[i]}
+                    </div>
+                    {badgeCount > 0 && (
+                      <span className="absolute -top-1 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center shadow-md">
+                        {badgeCount}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{labels[i]}</span>
+                </Link>
+              );
+            })}
           </div>
-          <PendingTransactions initialTransactions={transactions} />
         </div>
       </main>
-
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-4 left-0 right-0 max-w-md mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/50 flex justify-around p-2">
-        <Link
-          href="/admin"
-          className="flex flex-col items-center p-2 text-purple-600 hover:bg-purple-50 rounded-xl transition-all"
-        >
-          <span className="text-2xl">📊</span>
-          <span className="text-xs mt-1 font-medium">Dashboard</span>
-        </Link>
-        <Link
-          href="/admin/transactions"
-          className="flex flex-col items-center p-2 text-gray-500 hover:bg-gray-50 rounded-xl transition-all"
-        >
-          <span className="text-2xl">💳</span>
-          <span className="text-xs mt-1 font-medium">Transactions</span>
-        </Link>
-        <Link
-          href="/admin/history"
-          className="flex flex-col items-center p-2 text-gray-500 hover:bg-gray-50 rounded-xl transition-all"
-        >
-          <span className="text-2xl">🕒</span>
-          <span className="text-xs mt-1 font-medium">History</span>
-        </Link>
-        <Link
-          href="/admin/earn"
-          className="flex flex-col items-center p-2 text-gray-500 hover:bg-gray-50 rounded-xl transition-all"
-        >
-          <span className="text-2xl">💸</span>
-          <span className="text-xs mt-1 font-medium">Earn</span>
-        </Link>
-      </nav>
     </div>
   );
 }
