@@ -65,9 +65,7 @@ export default function LevelBenefitsPage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  if (loading) {
-    return <div className="p-6 text-center">Loading benefits…</div>;
-  }
+  if (loading) return <div className="p-6 text-center">Loading benefits…</div>;
 
   if (loadError || !levelData) {
     return (
@@ -81,9 +79,10 @@ export default function LevelBenefitsPage() {
     key,
     name,
     price,
-    color = "text-gray-700",
-    bgcolor = "bg-gray-100",
-    bordercolor = "border-gray-300",
+    icon = "🎖️",
+    color = "text-purple-600",
+    bgcolor = "bg-purple-50",
+    bordercolor = "border-purple-200",
     description = "",
   } = levelData;
 
@@ -95,11 +94,8 @@ export default function LevelBenefitsPage() {
   const handleProceedToPayment = () => {
     const payload = { id: key, name, price };
 
-    // Save required data for future steps
     localStorage.setItem("paygo-selected-level", JSON.stringify(payload));
     localStorage.setItem("paygo-upgrade-data", JSON.stringify(payload));
-
-    // ✅ Fix: ensure paygo-pay-id-form is available for select-bank page
     localStorage.setItem("paygo-pay-id-form", JSON.stringify({ email: "guest@example.com" }));
 
     router.push("/upgrade/loading");
@@ -126,23 +122,24 @@ export default function LevelBenefitsPage() {
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Level Header */}
-        <div className={cn("p-4 rounded-lg border", bordercolor, bgcolor)}>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center">
-              {/* Optional icon here */}
-            </div>
-            <div>
-              <h2 className="text-lg font-bold">{name}</h2>
-              <p className="font-medium">{formatCurrency(price)}</p>
-            </div>
-          </div>
-        </div>
+        {/* Level Info Card */}
+<div className={cn("p-4 rounded-lg border", bordercolor, bgcolor)}>
+  <div className="flex items-center gap-3">
+    <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-sm", color, "bg-white")}>
+      <span className="text-2xl">{icon}</span>
+    </div>
+    <div>
+      <h2 className="text-lg font-bold text-gray-800">{name}</h2>
+      <p className="font-medium text-gray-600">{formatCurrency(price)}</p>
+    </div>
+  </div>
+</div>
+
 
         {/* Benefits List */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="p-3 bg-purple-50 border-b border-gray-200">
-            <h3 className="font-bold text-sm text-purple-800">Benefits &amp; Features</h3>
+            <h3 className="font-bold text-sm text-purple-800">Benefits & Features</h3>
           </div>
           <div className="p-3">
             {benefits.length === 0 ? (
@@ -160,6 +157,7 @@ export default function LevelBenefitsPage() {
           </div>
         </div>
 
+        {/* Button */}
         <Button
           onClick={handleProceedToPayment}
           className={cn(
@@ -172,7 +170,7 @@ export default function LevelBenefitsPage() {
         </Button>
 
         <p className="text-center text-xs text-gray-500">
-          Your upgrade will be activated immediately after payment is confirmed
+          Your upgrade will be activated immediately after payment is confirmed.
         </p>
       </div>
     </div>
