@@ -192,7 +192,7 @@ export default async function AdminPage() {
         <div className="mb-8">
           <h2 className="text-lg font-bold text-gray-800 mb-4 ml-1">Quick Actions</h2>
           <div className="grid grid-cols-3 gap-4">
-            {["payid", "packages", "withdrawals", "history", "earn", "users", "banks", "currency", "promotion"].map((href, i) => {
+            {["payid", "packages", "withdrawals", "history", "earn", "users", "banks", "currency", "promotions"].map((href, i) => {
               const icons = ["🆔", "📦", "💰", "🕒", "💸", "👥", "🏦", "💱", "🎁"];
               const labels = ["PAY IDs", "Packages", "Withdrawals", "History", "Earn", "Users", "Banks", "Currency", "Promotion"];
               const colors = ["purple", "blue", "green", "yellow", "red", "indigo", "cyan", "orange", "pink"];
