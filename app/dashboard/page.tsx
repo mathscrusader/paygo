@@ -249,16 +249,27 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <Link href="/transactions">
-            <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full bg-purple-600 hover:bg-purple-500">
-              <span className="text-lg">🔔</span>
-              {unseenCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
-                  {unseenCount}
-                </span>
-              )}
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+  {/* Message Icon */}
+  <Link href="/chat">
+    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-purple-600 hover:bg-purple-500">
+      <span className="text-lg">💬</span>
+    </Button>
+  </Link>
+
+  {/* Notification Bell */}
+  <Link href="/transactions">
+    <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full bg-purple-600 hover:bg-purple-500">
+      <span className="text-lg">🔔</span>
+      {unseenCount > 0 && (
+        <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
+          {unseenCount}
+        </span>
+      )}
+    </Button>
+  </Link>
+</div>
+
         </div>
 
         <div className="mt-4">
