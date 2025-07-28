@@ -60,8 +60,12 @@ export default async function AdminPage() {
 
   const approvalRate = totalTransactions ? Math.round((approvedCount / totalTransactions) * 100) : 0;
 
-  // 🔴 PAY ID + PACKAGES NOTIFICATIONS
-  const [{ count: payIdNotificationCount }, { count: packageNotificationCount }] = await Promise.all([
+  // ✅ PAY ID + PACKAGES + WITHDRAWAL NOTIFICATIONS
+  const [
+    { count: payIdNotificationCount },
+    { count: packageNotificationCount },
+    { count: withdrawalNotificationCount }
+  ] = await Promise.all([
     supabaseAdmin
       .from("Transaction")
       .select("id", { count: "exact", head: true })
@@ -74,11 +78,14 @@ export default async function AdminPage() {
       .eq("type", "upgrade")
       .eq("status", "PENDING")
       .eq("approved", false),
+    supabaseAdmin
+      .from("withdrawals")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
   ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 pb-24">
-      {/* Header */}
       <header className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-5 sticky top-0 z-50 shadow-2xl border-b-4 border-purple-400/30">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center space-x-4">
@@ -98,9 +105,12 @@ export default async function AdminPage() {
             <Link href="/admin/notifications" className="relative group">
               <div className="bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/20 shadow-lg group-hover:scale-110 transition-transform">
                 <span className="text-xl">🔔</span>
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center shadow-md">
-                  3
-                </span>
+                {(payIdNotificationCount + packageNotificationCount + withdrawalNotificationCount) > 0 && (
+  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center shadow-md">
+    {payIdNotificationCount + packageNotificationCount + withdrawalNotificationCount}
+  </span>
+)}
+
               </div>
             </Link>
             <span className="px-3 py-1 text-xs font-bold bg-white/20 text-white rounded-xl backdrop-blur-sm border border-white/20 shadow-lg">
@@ -110,9 +120,7 @@ export default async function AdminPage() {
         </div>
       </header>
 
-      {/* Main */}
       <main className="p-4 max-w-6xl mx-auto">
-        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-purple-500">
             <div className="flex justify-between items-center">
@@ -161,25 +169,17 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        {/* Transactions by Type */}
         {Object.keys(byType).length > 0 && (
           <>
             <h2 className="text-lg font-bold text-gray-800 mb-4 ml-1">Transactions by Type</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {Object.entries(byType).map(([t, v]) => (
-                <div
-                  key={t}
-                  className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-gray-300"
-                >
+                <div key={t} className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-gray-300">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-xs text-gray-500 font-medium capitalize">
-                        {t} Txns
-                      </p>
+                      <p className="text-xs text-gray-500 font-medium capitalize">{t} Txns</p>
                       <p className="text-xl font-bold text-gray-800 mt-1">{v.count}</p>
-                      <p className="text-xs text-gray-500">
-                        ₦{v.total.toLocaleString()}
-                      </p>
+                      <p className="text-xs text-gray-500">₦{v.total.toLocaleString()}</p>
                     </div>
                     <div className="text-gray-600 text-2xl">📂</div>
                   </div>
@@ -189,20 +189,21 @@ export default async function AdminPage() {
           </>
         )}
 
-        {/* Quick Actions */}
         <div className="mb-8">
           <h2 className="text-lg font-bold text-gray-800 mb-4 ml-1">Quick Actions</h2>
           <div className="grid grid-cols-3 gap-4">
-            {["payid","packages","withdrawals","history","earn","users","banks","currency","promotion"].map((href, i) => {
-              const icons = ["🆔","📦","💰","🕒","💸","👥","🏦","💱","🎁"];
-              const labels = ["PAY IDs","Packages","Withdrawals","History","Earn","Users","Banks","Currency","Promotion"];
-              const colors = ["purple","blue","green","yellow","red","indigo","cyan","orange","pink"];
+            {["payid", "packages", "withdrawals", "history", "earn", "users", "banks", "currency", "promotion"].map((href, i) => {
+              const icons = ["🆔", "📦", "💰", "🕒", "💸", "👥", "🏦", "💱", "🎁"];
+              const labels = ["PAY IDs", "Packages", "Withdrawals", "History", "Earn", "Users", "Banks", "Currency", "Promotion"];
+              const colors = ["purple", "blue", "green", "yellow", "red", "indigo", "cyan", "orange", "pink"];
 
               const badgeCount =
                 href === "payid"
                   ? payIdNotificationCount
                   : href === "packages"
                   ? packageNotificationCount
+                  : href === "withdrawals"
+                  ? withdrawalNotificationCount
                   : 0;
 
               return (
