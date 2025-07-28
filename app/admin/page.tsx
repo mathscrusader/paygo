@@ -1,91 +1,83 @@
-import { getServerSession } from "next-auth/next";
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+// app/admin/page.tsx
+import { getServerSession } from "next-auth/next"
+import { redirect } from "next/navigation"
+import Link from "next/link"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { supabaseAdmin } from "@/lib/supabaseAdmin"
 
 export default async function AdminPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions)
   if (!session || (session.user as any).role !== "ADMIN") {
-    redirect("/auth/signin");
+    redirect("/auth/signin")
   }
 
-  const [totalTxRes, pendingTxRes, approvedTxRes] = await Promise.all([
+  // Fetch counts
+  const [
+    totalTxRes,
+    pendingTxRes,
+    approvedTxRes,
+    todayTxRes,
+    aggRowsRes,
+    userCountRes,
+    payIdNotificationRes,
+    packageNotificationRes,
+    withdrawalNotificationRes,
+    userMessageRes,
+  ] = await Promise.all([
     supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true }),
     supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true }).eq("approved", false),
     supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true }).eq("approved", true),
-  ]);
+    (async () => {
+      const start = new Date()
+      start.setHours(0,0,0,0)
+      const { count } = await supabaseAdmin
+        .from("Transaction")
+        .select("id", { count: "exact", head: true })
+        .gte("createdAt", start.toISOString())
+      return { count }
+    })(),
+    supabaseAdmin.from("Transaction").select("amount,status,approved,type"),
+    supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
+    supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true })
+      .eq("type", "activation").eq("status", "PENDING").eq("approved", false),
+    supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true })
+      .eq("type", "upgrade").eq("status", "PENDING").eq("approved", false),
+    supabaseAdmin.from("withdrawals").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabaseAdmin.from("messages").select("id", { count: "exact", head: true }).eq("sender_role", "user"),
+  ])
 
-  const totalTransactions = totalTxRes.count ?? 0;
-  const pendingCount = pendingTxRes.count ?? 0;
-  const approvedCount = approvedTxRes.count ?? 0;
+  const totalTransactions = totalTxRes.count ?? 0
+  const pendingCount = pendingTxRes.count ?? 0
+  const approvedCount = approvedTxRes.count ?? 0
+  const todayCount = todayTxRes.count ?? 0
 
-  let todayCount = 0;
-  try {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const { count } = await supabaseAdmin
-      .from("Transaction")
-      .select("id", { count: "exact", head: true })
-      .gte("createdAt", startOfDay.toISOString());
-    todayCount = count ?? 0;
-  } catch {}
-
-  const { data: aggRows } = await supabaseAdmin
-    .from("Transaction")
-    .select("amount, status, approved, type");
-
-  let sumPending = 0;
-  let sumApproved = 0;
-  const byType: Record<string, { count: number; total: number }> = {};
-  if (aggRows) {
-    for (const r of aggRows) {
-      const status = (r.status || "").toLowerCase();
-      if (status === "pending") sumPending += r.amount ?? 0;
-      if (r.approved) sumApproved += r.amount ?? 0;
-      const t = r.type ?? "unknown";
-      if (!byType[t]) byType[t] = { count: 0, total: 0 };
-      byType[t].count += 1;
-      byType[t].total += r.amount ?? 0;
+  // Aggregate amounts
+  let sumPending = 0
+  let sumApproved = 0
+  const byType: Record<string, { count: number; total: number }> = {}
+  if (aggRowsRes.data) {
+    for (const r of aggRowsRes.data) {
+      const status = (r.status || "").toLowerCase()
+      if (status === "pending") sumPending += r.amount ?? 0
+      if (r.approved) sumApproved += r.amount ?? 0
+      const t = r.type ?? "unknown"
+      if (!byType[t]) byType[t] = { count: 0, total: 0 }
+      byType[t].count++
+      byType[t].total += r.amount ?? 0
     }
   }
 
-  let totalUsers = 0;
-  try {
-    const { count } = await supabaseAdmin
-      .from("profiles")
-      .select("id", { count: "exact", head: true });
-    totalUsers = count ?? 0;
-  } catch {}
+  const totalUsers = userCountRes.count ?? 0
+  const approvalRate = totalTransactions ? Math.round((approvedCount / totalTransactions) * 100) : 0
 
-  const approvalRate = totalTransactions ? Math.round((approvedCount / totalTransactions) * 100) : 0;
-
-  // ✅ PAY ID + PACKAGES + WITHDRAWAL NOTIFICATIONS
-  const [
-    { count: payIdNotificationCount },
-    { count: packageNotificationCount },
-    { count: withdrawalNotificationCount }
-  ] = await Promise.all([
-    supabaseAdmin
-      .from("Transaction")
-      .select("id", { count: "exact", head: true })
-      .eq("type", "activation")
-      .eq("status", "PENDING")
-      .eq("approved", false),
-    supabaseAdmin
-      .from("Transaction")
-      .select("id", { count: "exact", head: true })
-      .eq("type", "upgrade")
-      .eq("status", "PENDING")
-      .eq("approved", false),
-    supabaseAdmin
-      .from("withdrawals")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending")
-  ]);
+  const payIdNotificationCount = payIdNotificationRes.count ?? 0
+  const packageNotificationCount = packageNotificationRes.count ?? 0
+  const withdrawalNotificationCount = withdrawalNotificationRes.count ?? 0
+  const messageCount = userMessageRes.count ?? 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 pb-24">
+      {/* Header */}
       <header className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-5 sticky top-0 z-50 shadow-2xl border-b-4 border-purple-400/30">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center space-x-4">
@@ -102,15 +94,26 @@ export default async function AdminPage() {
             </div>
           </div>
           <div className="flex items-center space-x-5">
+            {/* Messages Button */}
+            <Link href="/admin/chat" className="relative group">
+              <div className="bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/20 shadow-lg group-hover:scale-110 transition-transform">
+                <span className="text-xl">💬</span>
+                {messageCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center shadow-md">
+                    {messageCount}
+                  </span>
+                )}
+              </div>
+            </Link>
+            {/* Notifications Button */}
             <Link href="/admin/notifications" className="relative group">
               <div className="bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/20 shadow-lg group-hover:scale-110 transition-transform">
                 <span className="text-xl">🔔</span>
                 {(payIdNotificationCount + packageNotificationCount + withdrawalNotificationCount) > 0 && (
-  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center shadow-md">
-    {payIdNotificationCount + packageNotificationCount + withdrawalNotificationCount}
-  </span>
-)}
-
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center shadow-md">
+                    {payIdNotificationCount + packageNotificationCount + withdrawalNotificationCount}
+                  </span>
+                )}
               </div>
             </Link>
             <span className="px-3 py-1 text-xs font-bold bg-white/20 text-white rounded-xl backdrop-blur-sm border border-white/20 shadow-lg">
@@ -121,7 +124,9 @@ export default async function AdminPage() {
       </header>
 
       <main className="p-4 max-w-6xl mx-auto">
+        {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {/* Pending */}
           <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-purple-500">
             <div className="flex justify-between items-center">
               <div>
@@ -130,11 +135,10 @@ export default async function AdminPage() {
               </div>
               <div className="text-purple-600 text-2xl">⏱️</div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              ₦{sumPending.toLocaleString()} pending
-            </p>
+            <p className="text-xs text-gray-500 mt-2">₦{sumPending.toLocaleString()} pending</p>
           </div>
 
+          {/* Today's Txns */}
           <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-blue-500">
             <div className="flex justify-between items-center">
               <div>
@@ -145,6 +149,7 @@ export default async function AdminPage() {
             </div>
           </div>
 
+          {/* Total Txns */}
           <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-indigo-500">
             <div className="flex justify-between items-center">
               <div>
@@ -153,11 +158,10 @@ export default async function AdminPage() {
               </div>
               <div className="text-indigo-600 text-2xl">🧾</div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              ₦{sumApproved.toLocaleString()} approved
-            </p>
+            <p className="text-xs text-gray-500 mt-2">₦{sumApproved.toLocaleString()} approved</p>
           </div>
 
+          {/* Approval Rate */}
           <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-yellow-500">
             <div className="flex justify-between items-center">
               <div>
@@ -169,6 +173,7 @@ export default async function AdminPage() {
           </div>
         </div>
 
+        {/* Transactions by Type */}
         {Object.keys(byType).length > 0 && (
           <>
             <h2 className="text-lg font-bold text-gray-800 mb-4 ml-1">Transactions by Type</h2>
@@ -189,13 +194,54 @@ export default async function AdminPage() {
           </>
         )}
 
+        {/* Quick Actions */}
         <div className="mb-8">
           <h2 className="text-lg font-bold text-gray-800 mb-4 ml-1">Quick Actions</h2>
           <div className="grid grid-cols-3 gap-4">
-            {["payid", "packages", "withdrawals", "history", "earn", "users", "banks", "currency", "promotions"].map((href, i) => {
-              const icons = ["🆔", "📦", "💰", "🕒", "💸", "👥", "🏦", "💱", "🎁"];
-              const labels = ["PAY IDs", "Packages", "Withdrawals", "History", "Earn", "Users", "Banks", "Currency", "Promotion"];
-              const colors = ["purple", "blue", "green", "yellow", "red", "indigo", "cyan", "orange", "pink"];
+            {[
+              "payid",
+              "packages",
+              "withdrawals",
+              "history",
+              "earn",
+              "users",
+              "banks",
+              "popups",
+              "promotions",
+            ].map((href, i) => {
+              const icons = [
+                "🆔",
+                "📦",
+                "💰",
+                "🕒",
+                "💸",
+                "👥",
+                "🏦",
+                "🛎️",
+                "🎁",
+              ]
+              const labels = [
+                "PAY IDs",
+                "Packages",
+                "Withdrawals",
+                "History",
+                "Earn",
+                "Users",
+                "Banks",
+                "Popups",
+                "Promotion",
+              ]
+              const colors = [
+                "purple",
+                "blue",
+                "green",
+                "yellow",
+                "red",
+                "indigo",
+                "cyan",
+                "orange",
+                "pink",
+              ]
 
               const badgeCount =
                 href === "payid"
@@ -204,7 +250,7 @@ export default async function AdminPage() {
                   ? packageNotificationCount
                   : href === "withdrawals"
                   ? withdrawalNotificationCount
-                  : 0;
+                  : 0
 
               return (
                 <Link
@@ -224,11 +270,12 @@ export default async function AdminPage() {
                   </div>
                   <span className="text-sm font-medium text-gray-700">{labels[i]}</span>
                 </Link>
-              );
+              )
             })}
           </div>
         </div>
       </main>
     </div>
-  );
+  )
 }
+
