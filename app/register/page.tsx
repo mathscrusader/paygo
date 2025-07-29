@@ -46,7 +46,7 @@ export default function RegisterPage() {
       })
   }, [])
 
-  // Capture referral from URL
+  // Capture referral from URL or localStorage
   useEffect(() => {
     const url = new URL(window.location.href)
     const ref = url.searchParams.get("ref")
@@ -62,6 +62,7 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
     if (!name || !email || !password || !country) {
       setError("Please fill in all fields")
       return
@@ -89,15 +90,31 @@ export default function RegisterPage() {
     if (userId) {
       const { error: profileError } = await supabase
         .from("profiles")
-        .insert([{
-          id: userId,
-          full_name: name,
-          country_code: country,
-          referred_by: referralCode || null,
-        }])
+        .insert([
+          {
+            id: userId,
+            full_name: name,
+            country_code: country,
+            referred_by: referralCode || null,
+          },
+        ])
 
       if (profileError) {
         console.error("Profile insert error:", profileError)
+      } else if (referralCode) {
+        // 3. Trigger referral bonus API
+        try {
+          await fetch("/api/referral", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              newUserId: userId,
+              referralCode,
+            }),
+          })
+        } catch (err) {
+          console.error("Referral API error:", err)
+        }
       }
     }
 
