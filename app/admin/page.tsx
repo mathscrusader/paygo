@@ -275,7 +275,33 @@ export default async function AdminPage() {
           </div>
         </div>
       </main>
+            
+
+      {/* 📱 Mobile Bottom Navigation */}
+      <footer className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-xl rounded-t-2xl z-50">
+        <nav className="flex justify-around items-center py-2">
+          <Link href="/admin" className="flex flex-col items-center text-gray-700 hover:text-purple-600 text-sm">
+            <span className="text-xl">🏠</span>
+            <span className="text-xs mt-0.5">Home</span>
+          </Link>
+          <Link href="/admin/packages" className="flex flex-col items-center text-gray-700 hover:text-blue-600 text-sm">
+            <span className="text-xl">📦</span>
+            <span className="text-xs mt-0.5">Packages</span>
+          </Link>
+          <Link href="/admin/withdrawals" className="flex flex-col items-center text-gray-700 hover:text-green-600 text-sm">
+            <span className="text-xl">💰</span>
+            <span className="text-xs mt-0.5">Withdraw</span>
+          </Link>
+          <Link href="/admin/users" className="flex flex-col items-center text-gray-700 hover:text-indigo-600 text-sm">
+            <span className="text-xl">👥</span>
+            <span className="text-xs mt-0.5">Users</span>
+          </Link>
+        </nav>
+      </footer>
+
     </div>
   )
 }
+
+  
 

@@ -241,36 +241,28 @@ export default async function AdminPackagesPage({
         )}
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-100 flex justify-around p-2">
-        <Link href="/admin" className="flex flex-col items-center text-[#6C63FF] p-1">
-          <div className="p-2 rounded-full">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
-          <span className="text-[10px] mt-1">Dashboard</span>
-        </Link>
-        <Link
-          href="/admin/packages?view=packages"
-          className="flex flex-col items-center text-[#34296B] p-1 font-bold"
-        >
-          <div className="p-2 rounded-full bg-[#F5F6FA]">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-          <span className="text-[10px] mt-1">Packages</span>
-        </Link>
-        <Link href="/admin/payid" className="flex flex-col items-center text-[#6C63FF] p-1">
-          <div className="p-2 rounded-full">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-            </svg>
-          </div>
-          <span className="text-[10px] mt-1">Pay IDs</span>
-        </Link>
-      </nav>
-    </div>
-  )
-}
+     {/* 📱 Mobile Bottom Navigation */}
+           <footer className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-xl rounded-t-2xl z-50">
+             <nav className="flex justify-around items-center py-2">
+               <Link href="/admin" className="flex flex-col items-center text-gray-700 hover:text-purple-600 text-sm">
+                 <span className="text-xl">🏠</span>
+                 <span className="text-xs mt-0.5">Home</span>
+               </Link>
+               <Link href="/admin/packages" className="flex flex-col items-center text-gray-700 hover:text-blue-600 text-sm">
+                 <span className="text-xl">📦</span>
+                 <span className="text-xs mt-0.5">Packages</span>
+               </Link>
+               <Link href="/admin/withdrawals" className="flex flex-col items-center text-gray-700 hover:text-green-600 text-sm">
+                 <span className="text-xl">💰</span>
+                 <span className="text-xs mt-0.5">Withdraw</span>
+               </Link>
+               <Link href="/admin/users" className="flex flex-col items-center text-gray-700 hover:text-indigo-600 text-sm">
+                 <span className="text-xl">👥</span>
+                 <span className="text-xs mt-0.5">Users</span>
+               </Link>
+             </nav>
+           </footer>
+     
+         </div>
+       )
+     }
