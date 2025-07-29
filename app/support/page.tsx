@@ -45,7 +45,7 @@ export default function SupportPage() {
   }
 
   const handleTelegramSupport = () => {
-    window.open("https://t.me/rewardpal", "_blank")
+    window.open("https://t.me/rexnaija", "_blank")
   }
 
   const stillLoading = loading || (loading === false && !session)
