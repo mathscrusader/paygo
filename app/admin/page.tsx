@@ -22,14 +22,13 @@ export default async function AdminPage() {
     payIdNotificationRes,
     packageNotificationRes,
     withdrawalNotificationRes,
-    userMessageRes,
   ] = await Promise.all([
     supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true }),
     supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true }).eq("approved", false),
     supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true }).eq("approved", true),
     (async () => {
       const start = new Date()
-      start.setHours(0,0,0,0)
+      start.setHours(0, 0, 0, 0)
       const { count } = await supabaseAdmin
         .from("Transaction")
         .select("id", { count: "exact", head: true })
@@ -43,7 +42,6 @@ export default async function AdminPage() {
     supabaseAdmin.from("Transaction").select("id", { count: "exact", head: true })
       .eq("type", "upgrade").eq("status", "PENDING").eq("approved", false),
     supabaseAdmin.from("withdrawals").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    supabaseAdmin.from("messages").select("id", { count: "exact", head: true }).eq("sender_role", "user"),
   ])
 
   const totalTransactions = totalTxRes.count ?? 0
@@ -67,13 +65,10 @@ export default async function AdminPage() {
     }
   }
 
-  const totalUsers = userCountRes.count ?? 0
   const approvalRate = totalTransactions ? Math.round((approvedCount / totalTransactions) * 100) : 0
-
   const payIdNotificationCount = payIdNotificationRes.count ?? 0
   const packageNotificationCount = packageNotificationRes.count ?? 0
   const withdrawalNotificationCount = withdrawalNotificationRes.count ?? 0
-  const messageCount = userMessageRes.count ?? 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 pb-24">
@@ -94,17 +89,6 @@ export default async function AdminPage() {
             </div>
           </div>
           <div className="flex items-center space-x-5">
-            {/* Messages Button */}
-            <Link href="/admin/chat" className="relative group">
-              <div className="bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/20 shadow-lg group-hover:scale-110 transition-transform">
-                <span className="text-xl">💬</span>
-                {messageCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center shadow-md">
-                    {messageCount}
-                  </span>
-                )}
-              </div>
-            </Link>
             {/* Notifications Button */}
             <Link href="/admin/notifications" className="relative group">
               <div className="bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/20 shadow-lg group-hover:scale-110 transition-transform">
@@ -206,42 +190,11 @@ export default async function AdminPage() {
               "earn",
               "users",
               "banks",
-              "popups",
               "promotions",
             ].map((href, i) => {
-              const icons = [
-                "🆔",
-                "📦",
-                "💰",
-                "🕒",
-                "💸",
-                "👥",
-                "🏦",
-                "🛎️",
-                "🎁",
-              ]
-              const labels = [
-                "PAY IDs",
-                "Packages",
-                "Withdrawals",
-                "History",
-                "Earn",
-                "Users",
-                "Banks",
-                "Popups",
-                "Promotion",
-              ]
-              const colors = [
-                "purple",
-                "blue",
-                "green",
-                "yellow",
-                "red",
-                "indigo",
-                "cyan",
-                "orange",
-                "pink",
-              ]
+              const icons = ["🆔","📦","💰","🕒","💸","👥","🏦","🎁"]
+              const labels = ["PAY IDs","Packages","Withdrawals","History","Earn","Users","Banks","Promotion"]
+              const colors = ["purple","blue","green","yellow","red","indigo","cyan","pink"]
 
               const badgeCount =
                 href === "payid"
@@ -259,9 +212,7 @@ export default async function AdminPage() {
                   className={`bg-gradient-to-br from-${colors[i]}-100 to-${colors[i]}-50 p-4 rounded-2xl shadow-lg border border-${colors[i]}-200/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center`}
                 >
                   <div className="relative">
-                    <div className={`text-4xl mb-2 text-${colors[i]}-600 drop-shadow-md`}>
-                      {icons[i]}
-                    </div>
+                    <div className={`text-4xl mb-2 text-${colors[i]}-600 drop-shadow-md`}>{icons[i]}</div>
                     {badgeCount > 0 && (
                       <span className="absolute -top-1 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center shadow-md">
                         {badgeCount}
@@ -275,33 +226,28 @@ export default async function AdminPage() {
           </div>
         </div>
       </main>
-            
 
-      {/* 📱 Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation */}
       <footer className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-xl rounded-t-2xl z-50">
         <nav className="flex justify-around items-center py-2">
           <Link href="/admin" className="flex flex-col items-center text-gray-700 hover:text-purple-600 text-sm">
             <span className="text-xl">🏠</span>
             <span className="text-xs mt-0.5">Home</span>
           </Link>
-          <Link href="/admin/packages" className="flex flex-col items-center text-gray-700 hover:text-blue-600 text-sm">
+          <Link href="/admin/packages" className="flex flex-col	items-center text-gray-700 hover:text-blue-600 text-sm">
             <span className="text-xl">📦</span>
             <span className="text-xs mt-0.5">Packages</span>
           </Link>
-          <Link href="/admin/withdrawals" className="flex flex-col items-center text-gray-700 hover:text-green-600 text-sm">
+          <Link href="/admin/withdrawals" className="flex flex-col	items-center text-gray-700 hover:text-green-600 text-sm">
             <span className="text-xl">💰</span>
             <span className="text-xs mt-0.5">Withdraw</span>
           </Link>
-          <Link href="/admin/users" className="flex flex-col items-center text-gray-700 hover:text-indigo-600 text-sm">
+          <Link href="/admin/users" className="flex flex-col	items-center text-gray-700 hover:text-indigo-600 text-sm">
             <span className="text-xl">👥</span>
             <span className="text-xs mt-0.5">Users</span>
           </Link>
         </nav>
       </footer>
-
     </div>
   )
 }
-
-  
-

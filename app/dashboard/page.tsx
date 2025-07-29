@@ -66,9 +66,13 @@ export default function DashboardPage() {
     if (loading || !session) return
 
     ;(async () => {
-      const baseName = session.user.user_metadata?.fullName || session.user.email?.split("@")[0] || "User"
+      const baseName =
+        session.user.user_metadata?.fullName ||
+        session.user.email?.split("@")[0] ||
+        "User"
       const baseEmail = session.user.email || ""
-      const profilePicture = session.user.user_metadata?.avatar_url || undefined
+      const profilePicture =
+        session.user.user_metadata?.avatar_url || undefined
 
       let balance = 0
       let weeklyRewards = 0
@@ -80,16 +84,13 @@ export default function DashboardPage() {
         .maybeSingle()
 
       if (!walletRow) {
-        const { error: upsertErr } = await supabase.from("wallet").upsert(
-          {
-            userid: session.user.id,
-            balance: WELCOME_BONUS,
-          },
-          { onConflict: "userid" }
-        )
-        if (!upsertErr) {
-          balance = WELCOME_BONUS
-        }
+        const { error: upsertErr } = await supabase
+          .from("wallet")
+          .upsert(
+            { userid: session.user.id, balance: WELCOME_BONUS },
+            { onConflict: "userid" }
+          )
+        if (!upsertErr) balance = WELCOME_BONUS
       } else {
         balance = Number(walletRow.balance) || 0
       }
@@ -100,20 +101,19 @@ export default function DashboardPage() {
         .eq("referrer_id", session.user.id)
         .eq("status", "pending")
 
-      if (rewardsData && rewardsData.length > 0) {
+      if (rewardsData?.length) {
         weeklyRewards = rewardsData.reduce(
-          (sum, reward) => sum + (reward.reward_amount || 0),
+          (sum, r) => sum + (r.reward_amount || 0),
           0
         )
       }
 
-      let hasPayId = false
       const { data: payRow } = await supabase
         .from("payid")
         .select("payid")
         .eq("userid", session.user.id)
         .maybeSingle()
-      if (payRow?.payid) hasPayId = true
+      const hasPayId = Boolean(payRow?.payid)
 
       setUserData({
         name: baseName,
@@ -129,7 +129,6 @@ export default function DashboardPage() {
         .select("upgrade_level_id")
         .eq("id", session.user.id)
         .maybeSingle()
-
       if (profileData?.upgrade_level_id) {
         const { data: levelData } = await supabase
           .from("UpgradeLevel")
@@ -147,21 +146,19 @@ export default function DashboardPage() {
 
       setUnseenCount(unseen?.length || 0)
 
-      const welcomePopupShown = localStorage.getItem("paygo-welcome-popup-shown")
-      if (!welcomePopupShown) {
+      // Pop-up logic
+      const welcomeKey = "paygo-welcome-popup-shown"
+      if (!localStorage.getItem(welcomeKey)) {
         setShowWelcomePopup(true)
       } else {
-        const lastNewMonthPopup = localStorage.getItem("paygo-new-month-popup-last-shown")
-        const now = new Date()
-        const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`
-        if (lastNewMonthPopup !== currentMonthKey) {
+        const monthKey = `${new Date().getFullYear()}-${new Date().getMonth()}`
+        if (localStorage.getItem("paygo-new-month-popup-last-shown") !== monthKey) {
           setTimeout(() => setShowNewMonthPopup(true), 2000)
-        } else {
-          const lastFastPaymentPopup = localStorage.getItem("paygo-fast-payment-popup-last-shown")
-          const today = new Date().toDateString()
-          if (lastFastPaymentPopup !== today) {
-            setTimeout(() => setShowFastPaymentPopup(true), 3000)
-          }
+        } else if (
+          localStorage.getItem("paygo-fast-payment-popup-last-shown") !==
+          new Date().toDateString()
+        ) {
+          setTimeout(() => setShowFastPaymentPopup(true), 3000)
         }
       }
     })()
@@ -175,15 +172,19 @@ export default function DashboardPage() {
 
   const handleCloseNewMonthPopup = useCallback(() => {
     setShowNewMonthPopup(false)
-    const now = new Date()
-    const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`
-    localStorage.setItem("paygo-new-month-popup-last-shown", currentMonthKey)
+    localStorage.setItem(
+      "paygo-new-month-popup-last-shown",
+      `${new Date().getFullYear()}-${new Date().getMonth()}`
+    )
     setTimeout(() => setShowFastPaymentPopup(true), 1000)
   }, [])
 
   const handleCloseFastPaymentPopup = useCallback(() => {
     setShowFastPaymentPopup(false)
-    localStorage.setItem("paygo-fast-payment-popup-last-shown", new Date().toDateString())
+    localStorage.setItem(
+      "paygo-fast-payment-popup-last-shown",
+      new Date().toDateString()
+    )
   }, [])
 
   if (loading || (session && !userData)) {
@@ -228,7 +229,7 @@ export default function DashboardPage() {
       <div className="bg-white text-green-600 text-xs py-3 px-4 shadow-sm w-full">
         <div className="overflow-hidden whitespace-nowrap">
           <div className="animate-marquee inline-block font-bold">
-            🚀 Great News! Payment processing is now lightning fast! Make your payments and get verified instantly! &nbsp;&nbsp;&nbsp; 🚀 Great News!
+            🚀 Great News! Payment processing is now lightning fast! Make your payments and get verified instantly!
           </div>
         </div>
       </div>
@@ -250,33 +251,29 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-2">
-  {/* Message Icon */}
-  <Link href="/chat">
-    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-purple-600 hover:bg-purple-500">
-      <span className="text-lg">💬</span>
-    </Button>
-  </Link>
-
-  {/* Notification Bell */}
-  <Link href="/transactions">
-    <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full bg-purple-600 hover:bg-purple-500">
-      <span className="text-lg">🔔</span>
-      {unseenCount > 0 && (
-        <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
-          {unseenCount}
-        </span>
-      )}
-    </Button>
-  </Link>
-</div>
-
+            {/* Notification Bell only */}
+            <Link href="/transactions">
+              <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full bg-purple-600 hover:bg-purple-500">
+                <span className="text-lg">🔔</span>
+                {unseenCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
+                    {unseenCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="mt-4">
           <div className="text-sm font-medium text-gray-200 mb-1">Your Balance</div>
           <div className="flex justify-between items-center">
             <div className="text-3xl font-bold">{formatCurrency(userData.balance)}</div>
-            <button onClick={() => setShowBalance(!showBalance)} className="text-gray-200 hover:text-white" aria-label="Toggle balance">
+            <button
+              onClick={() => setShowBalance(!showBalance)}
+              className="text-gray-200 hover:text-white"
+              aria-label="Toggle balance"
+            >
               {showBalance ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />

@@ -45,7 +45,7 @@ export default function SupportPage() {
   }
 
   const handleTelegramSupport = () => {
-    window.open("https://t.me/realtechrt", "_blank")
+    window.open("https://t.me/rewardpal", "_blank")
   }
 
   const stillLoading = loading || (loading === false && !session)
@@ -76,10 +76,10 @@ export default function SupportPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-purple-600" />
-              Telegram Channel
+              RewardPal Telegram
             </CardTitle>
             <CardDescription>
-              Join our official Telegram group for updates, questions, and support.
+              Join our RewardPal channel for updates, questions, and support.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -88,7 +88,7 @@ export default function SupportPage() {
               className="w-full bg-blue-500 hover:bg-blue-600 flex items-center gap-2"
             >
               <Bot className="h-5 w-5" />
-              Join on Telegram
+              Join RewardPal
             </Button>
             <p className="text-sm text-gray-500 mt-2">
               Get community support, updates, and quick help from admins.
