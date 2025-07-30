@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, MessageSquare, Bot } from "lucide-react"
+import { ArrowLeft, Bot, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/app/providers"
@@ -16,10 +16,12 @@ export default function SupportPage() {
 
   useEffect(() => {
     if (loading) return
+
     if (redirectTimeoutRef.current) {
       clearTimeout(redirectTimeoutRef.current)
       redirectTimeoutRef.current = null
     }
+
     if (!session) {
       redirectTimeoutRef.current = setTimeout(() => {
         if (!session) router.replace("/login")
@@ -32,20 +34,18 @@ export default function SupportPage() {
         "User"
       setDisplayName(metaName)
     }
+
     return () => {
       if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current)
     }
   }, [loading, session, router])
 
-  const handleWhatsAppSupport = () => {
-    const phoneNumber = "2349113585676"
-    const message = encodeURIComponent("hello i contacted for help from Paygo app")
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`
-    window.open(whatsappUrl, "_blank")
+  const handleSupport = () => {
+    window.open("https://t.me/rexnaija", "_blank")
   }
 
-  const handleTelegramSupport = () => {
-    window.open("https://t.me/rexnaija", "_blank")
+  const handleLiveChat = () => {
+    window.open("https://t.me/rewardpal", "_blank")
   }
 
   const stillLoading = loading || (loading === false && !session)
@@ -53,7 +53,6 @@ export default function SupportPage() {
   if (stillLoading) {
     return <div className="p-6 text-center">Loading...</div>
   }
-
   if (!session) {
     return <div className="p-6 text-center">Redirecting…</div>
   }
@@ -71,52 +70,52 @@ export default function SupportPage() {
       <div className="p-4 space-y-6">
         <h2 className="text-xl font-semibold">How can we help you, {displayName}?</h2>
 
-        {/* Telegram Card */}
+        {/* Support Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-purple-600" />
-              RewardPal Telegram
+              Support
             </CardTitle>
             <CardDescription>
-              Join our RewardPal channel for updates, questions, and support.
+              Click here to chat with our support team on Telegram.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
-              onClick={handleTelegramSupport}
+              onClick={handleSupport}
               className="w-full bg-blue-500 hover:bg-blue-600 flex items-center gap-2"
             >
               <Bot className="h-5 w-5" />
-              Join RewardPal
+              Support
             </Button>
             <p className="text-sm text-gray-500 mt-2">
-              Get community support, updates, and quick help from admins.
+              Our support team is here to assist you.
             </p>
           </CardContent>
         </Card>
 
-        {/* WhatsApp Support Card */}
+        {/* Live Chat Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-purple-600" />
-              WhatsApp Support
+              <MessageSquare className="h-5 w-5 text-green-600" />
+              Live Chat
             </CardTitle>
             <CardDescription>
-              Chat with our support team on WhatsApp for quick assistance
+              Join our Telegram live chat for real-time help.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
-              onClick={handleWhatsAppSupport}
+              onClick={handleLiveChat}
               className="w-full bg-green-600 hover:bg-green-700 flex items-center gap-2"
             >
               <MessageSquare className="h-5 w-5" />
-              Chat on WhatsApp
+              Live Chat
             </Button>
             <p className="text-sm text-gray-500 mt-2">
-              Our support team is available 24/7 to assist you with any issues or questions.
+              Connect instantly with our team in live chat.
             </p>
           </CardContent>
         </Card>
