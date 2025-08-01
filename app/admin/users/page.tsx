@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
-import { ArrowLeft, Eye, Edit3, Trash2, Search } from "lucide-react"
+import { ArrowLeft, Eye, Search } from "lucide-react"
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([])
@@ -16,7 +16,8 @@ export default function UsersPage() {
     setLoading(true)
     const offset = (pageNum - 1) * perPage
 
-    let query = supabase.from("profiles")
+    let query = supabase
+      .from("profiles")
       .select("id, full_name, email", { count: 'exact' })
       .order("full_name", { ascending: true })
       .range(offset, offset + perPage - 1)
@@ -58,7 +59,7 @@ export default function UsersPage() {
             href="/admin" 
             className="flex items-center gap-2 text-purple-100 hover:text-white transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" /> 
+            <ArrowLeft className="w-5 h-5" />
             <span className="font-medium">Back to Admin</span>
           </Link>
           
@@ -114,20 +115,6 @@ export default function UsersPage() {
                             >
                               <Eye className="w-5 h-5" />
                             </Link>
-                            <Link 
-                              href={`/admin/users/edit/${user.id}`}
-                              className="text-purple-600 hover:text-purple-900 p-1 rounded-full hover:bg-purple-100 transition-colors"
-                              title="Edit"
-                            >
-                              <Edit3 className="w-5 h-5" />
-                            </Link>
-                            <button 
-                              onClick={() => alert('Delete logic here')}
-                              className="text-purple-600 hover:text-purple-900 p-1 rounded-full hover:bg-purple-100 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
                           </div>
                         </td>
                       </tr>
