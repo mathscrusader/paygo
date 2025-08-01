@@ -3,13 +3,14 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, User, Mail, Globe, Award, Gift, Users, CreditCard, Calendar } from "lucide-react"
+import type { ReactNode } from "react"
 
 interface PageProps {
   params: { id: string }
 }
 
 export default async function UserDetailsPage({ params }: PageProps) {
-  const { id } = params
+  const id = params.id
 
   const { data: user, error } = await supabase
     .from("profiles")
@@ -38,7 +39,6 @@ export default async function UserDetailsPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-purple-50 p-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header with back button */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/admin/users"
@@ -56,9 +56,7 @@ export default async function UserDetailsPage({ params }: PageProps) {
           </span>
         </div>
 
-        {/* User Profile Card */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 border border-purple-100">
-          {/* Profile Header */}
           <div className="bg-purple-700 p-6 text-white">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-purple-700 text-2xl font-bold shadow-md">
@@ -74,7 +72,6 @@ export default async function UserDetailsPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Profile Details */}
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <DetailCard 
@@ -105,17 +102,17 @@ export default async function UserDetailsPage({ params }: PageProps) {
                 Financial Information
               </h3>
               <div className="grid grid-cols-1 gap-4">
-  <DetailCard 
-    icon={<CreditCard className="w-5 h-5 text-green-600" />}
-    label="Reward Balance"
-    value={
-      <span className="text-green-600">
-        ₦{user.reward_balance?.toLocaleString() ?? "0"}
-      </span>
-    }
-    highlight
-  />
-</div>
+                <DetailCard 
+                  icon={<CreditCard className="w-5 h-5 text-green-600" />}
+                  label="Reward Balance"
+                  value={
+                    <span className="text-green-600">
+                      ₦{user.reward_balance?.toLocaleString() ?? "0"}
+                    </span>
+                  }
+                  highlight
+                />
+              </div>
             </div>
 
             <div className="border-t border-purple-100 pt-4 mt-4">
@@ -143,12 +140,14 @@ export default async function UserDetailsPage({ params }: PageProps) {
   )
 }
 
-function DetailCard({ label, value, icon, highlight = false }: { 
-  label: string; 
-  value: string | number; 
-  icon?: React.ReactNode;
-  highlight?: boolean 
-}) {
+interface DetailCardProps {
+  label: string
+  value: ReactNode
+  icon?: ReactNode
+  highlight?: boolean
+}
+
+function DetailCard({ label, value, icon, highlight = false }: DetailCardProps) {
   return (
     <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
       <div className="bg-white p-2 rounded-lg shadow-sm text-purple-700">
