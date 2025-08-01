@@ -47,14 +47,14 @@ export async function PATCH(
         if (!referrerError && referrerProfile?.id) {
           // 2c. Check if a reward has already been given for this transaction
           const { data: existingReward } = await supabaseAdmin
-            .from("ReferralRewards")
+            .from("referralrewards")
             .select("id")
             .eq("transaction_id", txData.id)
             .maybeSingle()
 
           if (!existingReward) {
             // 2d. Create reward entry
-            await supabaseAdmin.from("ReferralRewards").insert([
+            await supabaseAdmin.from("referralrewards").insert([
               {
                 referrer_id: referrerProfile.id,
                 referred_user_id: txData.userId,

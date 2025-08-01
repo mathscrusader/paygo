@@ -14,7 +14,7 @@ export default function AdminReferralRewardsPage() {
 
   const fetchUnpaidRewards = async () => {
     const { data, error } = await supabase
-      .from("ReferralRewards")
+      .from("referralrewards")
       .select(`
         id,
         reward_amount,
@@ -35,7 +35,7 @@ export default function AdminReferralRewardsPage() {
   const markAsPaid = async (id: string) => {
     setLoadingId(id)
     const { error } = await supabase
-      .from("ReferralRewards")
+      .from("referralrewards")
       .update({ status: "paid" })
       .eq("id", id)
 

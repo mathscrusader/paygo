@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     // Insert the reward record
     const { error: insertError } = await supabaseAdmin
-      .from("ReferralRewards")
+      .from("referralrewards")
       .insert(rewardRecord);
     if (insertError) {
       console.error("ReferralRewards insert error:", insertError);

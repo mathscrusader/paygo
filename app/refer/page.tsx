@@ -54,7 +54,7 @@ export default function ReferPage() {
 
       // 3. Get total earnings
       const { data: rewards } = await supabase
-        .from("ReferralRewards")
+        .from("referralrewards")
         .select("reward_amount")
         .eq("referrer_id", session.user.id)
 
