@@ -48,7 +48,7 @@ export default function PayIdTable({
     try {
       const result = await action(id);
       toast.success(result.message);
-    } catch (error) {
+    } catch {
       toast.error("An error occurred. Please try again.");
     } finally {
       setIsLoading((prev) => ({ ...prev, [id]: false }));
@@ -56,77 +56,75 @@ export default function PayIdTable({
   };
 
   return (
-    <div className="bg-white/90 rounded-2xl shadow-2xl border border-gray-200/50 overflow-hidden">
+    <div className="bg-white/90 rounded-2xl shadow-2xl border border-gray-200/50">
       {/* Main Table */}
       {!selectedRow && (
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="p-3 text-xs font-medium text-gray-500 text-left">
-                User
-              </th>
-              <th className="p-3 text-xs font-medium text-gray-500 text-left">
-                Pay ID
-              </th>
-              <th className="p-3 text-xs font-medium text-gray-500 text-left">
-                Amount
-              </th>
-              <th className="p-3 text-xs font-medium text-gray-500 text-right">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {rows.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50">
-                <td className="p-3 text-sm font-medium text-gray-900">
-                  {row.full_name || "N/A"}
-                </td>
-                <td className="p-3 text-sm text-gray-500">{row.number}</td>
-                <td className="p-3 text-sm text-gray-900">
-                  ₦{row.amount?.toLocaleString()}
-                </td>
-                <td className="p-3 text-sm text-gray-500 flex justify-end space-x-2">
-                  <button
-                    onClick={() => setSelectedRow(row)}
-                    className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                    title="View details"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </button>
-                  {!row.approved && row.status === "PENDING" && (
-                    <>
-                      <button
-                        onClick={() => handleAction(row.id, approveAction)}
-                        disabled={isLoading[row.id]}
-                        className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors disabled:opacity-50"
-                        title="Approve"
-                      >
-                        {isLoading[row.id] ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="h-4 w-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleAction(row.id, declineAction)}
-                        disabled={isLoading[row.id]}
-                        className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
-                        title="Reject"
-                      >
-                        {isLoading[row.id] ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <XCircle className="h-4 w-4" />
-                        )}
-                      </button>
-                    </>
-                  )}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="p-3 text-xs font-medium text-gray-500 text-left">
+                  User
+                </th>
+                <th className="p-3 text-xs font-medium text-gray-500 text-left">
+                  Amount
+                </th>
+                <th className="p-3 text-xs font-medium text-gray-500 text-right">
+                  Actions
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {rows.map((row) => (
+                <tr key={row.id} className="hover:bg-gray-50">
+                  <td className="p-3 text-sm font-medium text-gray-900">
+                    {row.full_name || "N/A"}
+                  </td>
+                  <td className="p-3 text-sm text-gray-900">
+                    ₦{row.amount.toLocaleString()}
+                  </td>
+                  <td className="p-3 text-sm text-gray-500 flex justify-end space-x-2">
+                    <button
+                      onClick={() => setSelectedRow(row)}
+                      className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                      title="View details"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    {!row.approved && row.status === "PENDING" && (
+                      <>
+                        <button
+                          onClick={() => handleAction(row.id, approveAction)}
+                          disabled={isLoading[row.id]}
+                          className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors disabled:opacity-50"
+                          title="Approve"
+                        >
+                          {isLoading[row.id] ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleAction(row.id, declineAction)}
+                          disabled={isLoading[row.id]}
+                          className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+                          title="Reject"
+                        >
+                          {isLoading[row.id] ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <XCircle className="h-4 w-4" />
+                          )}
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* Detail View */}
@@ -166,7 +164,7 @@ export default function PayIdTable({
               <div>
                 <p className="text-xs text-gray-500">Amount</p>
                 <p className="text-sm font-medium text-gray-900">
-                  ₦{selectedRow.amount?.toLocaleString()}
+                  ₦{selectedRow.amount.toLocaleString()}
                 </p>
               </div>
               <div>
