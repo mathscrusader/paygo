@@ -83,15 +83,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
-  const userRole = (session.user as any).role;
-  console.log('User Role:', userRole);  // Debug: Log the user role
+  // Remove the following NextAuth role check as it's redundant with Supabase
+  // const userRole = (session.user as any).role;
+  // console.log('User Role:', userRole);
+  // if (userRole !== "ADMIN") {
+  //     console.log('Forbidden: User role is not ADMIN');
+  //     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  // }
 
-  if (userRole !== "ADMIN") {
-      console.log('Forbidden: User role is not ADMIN');  // Debug: Log if role check fails
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
-  }
-
-  // Remove the Supabase admin check since we're using NextAuth role
   const { userId, userIds, title, message } = await req.json()
 
   if (!title || !message) {
