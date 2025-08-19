@@ -48,6 +48,7 @@ export default async function AdminPage() {
   const pendingCount = pendingTxRes.count ?? 0
   const approvedCount = approvedTxRes.count ?? 0
   const todayCount = todayTxRes.count ?? 0
+  const userCount = userCountRes.count ?? 0
 
   // Aggregate amounts
   let sumPending = 0
@@ -109,7 +110,7 @@ export default async function AdminPage() {
 
       <main className="p-4 max-w-6xl mx-auto">
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
           {/* Pending */}
           <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-purple-500">
             <div className="flex justify-between items-center">
@@ -153,6 +154,17 @@ export default async function AdminPage() {
                 <p className="text-2xl font-bold text-gray-800 mt-1">{approvalRate}%</p>
               </div>
               <div className="text-yellow-600 text-2xl">📊</div>
+            </div>
+          </div>
+
+          {/* Total Users */}
+          <div className="bg-white/90 p-4 rounded-2xl shadow-2xl border-t-4 border-green-500">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-xs text-gray-500 font-medium">Total Users</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">{userCount}</p>
+              </div>
+              <div className="text-green-600 text-2xl">👥</div>
             </div>
           </div>
         </div>

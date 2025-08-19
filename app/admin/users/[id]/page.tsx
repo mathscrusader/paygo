@@ -2,8 +2,19 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { ArrowLeft, User, Mail, Globe, Award, Gift, Users, CreditCard, Calendar } from "lucide-react"
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Globe,
+  Award,
+  Gift,
+  Users,
+  CreditCard,
+  Calendar,
+} from "lucide-react"
 import type { ReactNode } from "react"
+import { UserActions } from "./UserActions"
 
 interface PageProps {
   params: { id: string }
@@ -15,18 +26,7 @@ export default async function UserDetailsPage({ params }: PageProps) {
   const { data: user, error } = await supabase
     .from("profiles")
     .select(
-      [
-        "id",
-        "full_name",
-        "email",
-        "country_code",
-        "created_at",
-        "upgrade_level_id",
-        "referral_code",
-        "referred_by",
-        "reward_balance",
-        "is_admin"
-      ].join(", ")
+      "id,full_name,email,country_code,created_at,upgrade_level_id,referral_code,referred_by,reward_balance,is_admin"
     )
     .eq("id", id)
     .single()
@@ -47,13 +47,7 @@ export default async function UserDetailsPage({ params }: PageProps) {
             <ArrowLeft className="w-5 h-5" />
             <span className="font-medium">Back to Users</span>
           </Link>
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-            user.is_admin 
-              ? "bg-purple-100 text-purple-800 border border-purple-200" 
-              : "bg-white text-purple-700 border border-purple-200"
-          }`}>
-            {user.is_admin ? "Admin" : "User"}
-          </span>
+          <UserActions user={user} />
         </div>
 
         <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 border border-purple-100">
@@ -74,25 +68,29 @@ export default async function UserDetailsPage({ params }: PageProps) {
 
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <DetailCard 
+              <DetailCard
                 icon={<User className="w-5 h-5 text-purple-600" />}
                 label="User ID"
                 value={user.id}
               />
-              <DetailCard 
+              <DetailCard
                 icon={<Calendar className="w-5 h-5 text-purple-600" />}
                 label="Joined Date"
                 value={new Date(user.created_at).toLocaleDateString()}
               />
-              <DetailCard 
+              <DetailCard
                 icon={<Globe className="w-5 h-5 text-purple-600" />}
                 label="Country Code"
                 value={user.country_code || "—"}
               />
-              <DetailCard 
+              <DetailCard
                 icon={<Award className="w-5 h-5 text-purple-600" />}
                 label="Upgrade Level"
-                value={user.upgrade_level_id ? `Level ${user.upgrade_level_id}` : "Basic"}
+                value={
+                  user.upgrade_level_id
+                    ? `Level ${user.upgrade_level_id}`
+                    : "Basic"
+                }
               />
             </div>
 
@@ -102,7 +100,7 @@ export default async function UserDetailsPage({ params }: PageProps) {
                 Financial Information
               </h3>
               <div className="grid grid-cols-1 gap-4">
-                <DetailCard 
+                <DetailCard
                   icon={<CreditCard className="w-5 h-5 text-green-600" />}
                   label="Reward Balance"
                   value={
@@ -121,12 +119,12 @@ export default async function UserDetailsPage({ params }: PageProps) {
                 Referral Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DetailCard 
+                <DetailCard
                   icon={<Gift className="w-5 h-5 text-purple-600" />}
                   label="Referral Code"
                   value={user.referral_code || "—"}
                 />
-                <DetailCard 
+                <DetailCard
                   icon={<Users className="w-5 h-5 text-purple-600" />}
                   label="Referred By"
                   value={user.referred_by || "—"}
@@ -147,15 +145,28 @@ interface DetailCardProps {
   highlight?: boolean
 }
 
-function DetailCard({ label, value, icon, highlight = false }: DetailCardProps) {
+function DetailCard({
+  label,
+  value,
+  icon,
+  highlight = false,
+}: DetailCardProps) {
   return (
     <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
       <div className="bg-white p-2 rounded-lg shadow-sm text-purple-700">
         {icon}
       </div>
       <div>
-        <p className="text-xs font-medium text-purple-600 uppercase tracking-wider">{label}</p>
-        <p className={`mt-1 ${highlight ? "text-purple-800 font-bold text-lg" : "text-purple-900 font-medium"}`}>
+        <p className="text-xs font-medium text-purple-600 uppercase tracking-wider">
+          {label}
+        </p>
+        <p
+          className={`mt-1 ${
+            highlight
+              ? "text-purple-800 font-bold text-lg"
+              : "text-purple-900 font-medium"
+          }`}
+        >
           {value}
         </p>
       </div>
