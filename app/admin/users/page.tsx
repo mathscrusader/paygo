@@ -237,6 +237,45 @@ export default function UsersPage() {
     setIsSending(false)
   }
 
+  const handleToggleSuspension = async (user: any) => {
+    setIsSuspending(true)
+    try {
+      const res = await fetch("/api/admin/users/suspend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          userId: user.id, 
+          suspend: !user.is_suspended 
+        }),
+      })
+
+      if (res.ok) {
+        toast({
+          title: user.is_suspended ? "User Unsuspended" : "User Suspended",
+          description: user.is_suspended 
+            ? "The user has been unsuspended and can now access their account." 
+            : "The user has been suspended and cannot access their account.",
+        })
+        // Update the user object to reflect the new suspension status
+        user.is_suspended = !user.is_suspended
+        // Refresh the user list to show updated status
+        fetchUsers(page, searchTerm)
+      } else {
+        const data = await res.json()
+        throw new Error(data.message || 'Failed to update user suspension status')
+      }
+    } catch (error: any) {
+      console.error('Failed to update suspension status:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'An unexpected error occurred.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSuspending(false)
+    }
+  }
+
   return (
     <div className="container mx-auto px-4 min-h-screen bg-purple-50">
       {/* Purple Header Section */}
@@ -353,10 +392,12 @@ export default function UsersPage() {
                               <button
                                 onClick={() => handleToggleSuspension(user)}
                                 disabled={isSuspending}
-                                className={`text-${user.is_suspended ? 'blue' : 'red'}-600 hover:text-${user.is_suspended ? 'blue' : 'red'}-900 p-1 rounded-full hover:bg-${user.is_suspended ? 'blue' : 'red'}-100 transition-colors`}
+                                className={user.is_suspended 
+                                  ? "text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-100 transition-colors" 
+                                  : "text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-100 transition-colors"}
                                 title={user.is_suspended ? "Unsuspend User" : "Suspend User"}
                               >
-                                <Ban className="w-5 h-5" />
+                                <Ban className={`w-5 h-5 ${user.is_suspended ? "text-blue-600" : "text-red-600"}`} />
                               </button>
                               <Link
                                 href={`/admin/users/${user.id}`}
