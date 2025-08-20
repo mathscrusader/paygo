@@ -1,174 +1,93 @@
-"use client"
+'use client'
 
-import Link from "next/link"
-import { useState, useEffect } from "react"
-import { supabase } from "@/lib/supabase"
-import { ArrowLeft, Eye, MessageSquare, Search, Ban } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useState, useEffect, useCallback } from 'react'
+import { getSupabaseClient } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
+import Modal from '@/components/Modal'
+import { ArrowLeft, Search, MessageSquare, Ban, Eye, ChevronDown } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import Link from 'next/link'
 
-// We need a separate modal component to avoid re-rendering the whole page
-function SendMessageModal({
-  isOpen,
-  onClose,
-  onSend,
-  userName,
-  isSending,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  onSend: (title: string, message: string) => void
-  userName: string
-  isSending: boolean
-}) {
-  const [title, setTitle] = useState("")
-  const [message, setMessage] = useState("")
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSend(title, message)
-    setTitle("")
-    setMessage("")
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Send Message to {userName}</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label
-              htmlFor="title"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Title
-            </label>
-            <input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              htmlFor="message"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Message
-            </label>
-            <textarea
-              id="message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={4}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-              required
-            ></textarea>
-          </div>
-          <div className="flex justify-end gap-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              disabled={isSending}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-400"
-              disabled={isSending}
-            >
-              {isSending ? "Sending..." : "Send"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
+type User = {
+  id: string
+  full_name: string
+  email: string
+  is_suspended: boolean
 }
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
-  const [searchTerm, setSearchTerm] = useState("")
+  const [perPage] = useState(10)
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all') // 'all', 'active', 'suspended'
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<any>(null)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isSending, setIsSending] = useState(false)
   const [isSuspending, setIsSuspending] = useState(false)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all')
-  const [totalUsers, setTotalUsers] = useState(0) // Added for proper pagination
-  const { toast } = useToast()
-  const perPage = 10
 
-  const fetchUsers = async (pageNum = 1, term = "", status = 'all') => {
-    setLoading(true)
-    const offset = (pageNum - 1) * perPage
-  
-    let query = supabase
-      .from("profiles")
-      .select("id, full_name, email, is_suspended", { count: "exact" })
-      .order("full_name", { ascending: true })
-      .range(offset, offset + perPage - 1)
-  
-    if (term.length >= 3) {
-      query = query.ilike("full_name", `${term}%`)
-    }
-  
-    // Add status filter
-    if (status === 'active') {
-      query = query.eq("is_suspended", false)
-    } else if (status === 'suspended') {
-      query = query.eq("is_suspended", true)
-    }
-  
-    const { data, error, count } = await query
-  
-    if (error) {
-      console.error("Error fetching users:", error)
-      toast({
-        title: "Error",
-        description: "Failed to fetch users.",
-        variant: "destructive",
-      })
-      setUsers([])
-      setTotalUsers(0)
-    } else {
-      setUsers(data || [])
-      setTotalUsers(count || 0)
-    }
-  
-    setLoading(false)
-  }
+  const { toast } = useToast()
+  const supabase = getSupabaseClient()
+
+  const fetchUsers = useCallback(
+    async (currentPage: number, search: string, status: string) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const from = (currentPage - 1) * perPage
+        const to = from + perPage - 1
+
+        let query = supabase
+          .from('profiles')
+          .select('id, full_name, email, is_suspended', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(from, to)
+
+        if (search) {
+          query = query.ilike('full_name', `%${search}%`)
+        }
+
+        if (status === 'active') {
+          query = query.eq('is_suspended', false)
+        } else if (status === 'suspended') {
+          query = query.eq('is_suspended', true)
+        }
+
+        const { data, error, count } = await query
+
+        if (error) throw error
+
+        setUsers(data || [])
+        setTotalUsers(count || 0)
+      } catch (err: any) {
+        setError(err.message)
+        toast({
+          title: 'Error fetching users',
+          description: err.message,
+          variant: 'destructive',
+        })
+      } finally {
+        setLoading(false)
+      }
+    },
+    [supabase, perPage, toast]
+  )
 
   useEffect(() => {
     fetchUsers(page, searchTerm, statusFilter)
-  }, [page, searchTerm, statusFilter])
+  }, [page, searchTerm, statusFilter, fetchUsers])
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
     setPage(1)
   }
-
-  const handleStatusFilterChange = (status: 'all' | 'active' | 'suspended') => {
-    setStatusFilter(status)
-    setPage(1)
-  }
-
-  const handleNext = () => {
-    if (page * perPage < totalUsers) {
-      setPage((prev) => prev + 1)
-    }
-  }
-  
-  const handlePrev = () => setPage((prev) => (prev > 1 ? prev - 1 : 1))
 
   const handleSelectUser = (userId: string) => {
     setSelectedUsers((prev) =>
@@ -186,7 +105,19 @@ export default function UsersPage() {
     }
   }
 
-  const openModal = (user: any) => {
+  const handleNext = () => {
+    if (page * perPage < totalUsers) {
+      setPage(page + 1)
+    }
+  }
+
+  const handlePrev = () => {
+    if (page > 1) {
+      setPage(page - 1)
+    }
+  }
+
+  const openModal = (user: User) => {
     setSelectedUser(user)
     setIsModalOpen(true)
   }
@@ -196,106 +127,120 @@ export default function UsersPage() {
     setIsModalOpen(false)
   }
 
-  const handleSendMessage = async (title: string, message: string) => {
+  const handleSendMessage = async (message: string, title: string) => {
     if (!selectedUser) return
     setIsSending(true)
-    try { // Added try-catch block for better error handling
-      const res = await fetch("/api/admin/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: selectedUser.id, title, message }),
+    try {
+      const response = await fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_ids: [selectedUser.id],
+          title,
+          message,
+        }),
       })
-
-      if (res.ok) {
-        toast({
-          title: "Message Sent",
-          description: "The message has been sent to the user.",
-        })
-        closeModal()
-      } else {
-        const data = await res.json()
-        throw new Error(data.message || 'Failed to send message') // Throw error to be caught by catch block
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to send message')
       }
-    } catch (error: any) {
-      console.error('Failed to send message:', error)
       toast({
-        title: "Error",
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
+        title: 'Message Sent',
+        description: `Your message has been sent to ${selectedUser.full_name}.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
       })
     } finally {
       setIsSending(false)
+      closeModal()
     }
   }
 
-  const handleSendBulkMessage = async (title: string, message: string) => {
-    const userIds = selectedUsers.length > 0 ? selectedUsers : users.map(u => u.id);
-    if (userIds.length === 0) {
-        toast({
-            title: "No users selected",
-            description: "Please select users to send a message to.",
-            variant: "destructive",
-        });
-        return;
-    }
-
-    setIsSending(true)
-    const res = await fetch("/api/admin/notifications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userIds, title, message }),
-    })
-
-    if (res.ok) {
-      toast({
-        title: "Messages Sent",
-        description: `The message has been sent to ${userIds.length} users.`,
-      })
-      setIsBulkModalOpen(false)
-      setSelectedUsers([])
+  const handleSendToSelected = () => {
+    if (selectedUsers.length > 0) {
+      setIsBulkModalOpen(true)
     } else {
       toast({
-        title: "Error",
-        description: "Failed to send messages.",
-        variant: "destructive",
+        title: 'No users selected',
+        description: 'Please select at least one user to send a message.',
+        variant: 'destructive',
       })
     }
-    setIsSending(false)
   }
 
-  const handleToggleSuspension = async (user: any) => {
+  const handleSendToAll = () => {
+    setSelectedUsers([]) // Ensure selection is cleared for "all"
+    setIsBulkModalOpen(true)
+  }
+
+  const handleSendBulkMessage = async (message: string, title: string) => {
+    setIsSending(true)
+    try {
+      const response = await fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_ids: selectedUsers.length > 0 ? selectedUsers : undefined, // If empty, API sends to all
+          title,
+          message,
+        }),
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to send bulk message')
+      }
+      toast({
+        title: 'Bulk Message Sent',
+        description: `Your message has been sent to ${
+          selectedUsers.length > 0 ? `${selectedUsers.length} users` : 'all users'
+        }.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSending(false)
+      setIsBulkModalOpen(false)
+    }
+  }
+
+  const handleToggleSuspension = async (user: User) => {
     setIsSuspending(true)
     try {
-      const res = await fetch("/api/admin/users/suspend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          userId: user.id, 
-          suspend: !user.is_suspended 
-        }),
+      const res = await fetch(`/api/admin/users/${user.id}/suspend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_suspended: !user.is_suspended }),
       })
 
       if (res.ok) {
         toast({
-          title: user.is_suspended ? "User Unsuspended" : "User Suspended",
-          description: user.is_suspended 
-            ? "The user has been unsuspended and can now access their account." 
-            : "The user has been suspended and cannot access their account.",
+          title: user.is_suspended ? 'User Unsuspended' : 'User Suspended',
+          description: user.is_suspended
+            ? 'The user has been unsuspended and can now access their account.'
+            : 'The user has been suspended and cannot access their account.',
         })
-        // Update the user object to reflect the new suspension status
-        user.is_suspended = !user.is_suspended
-        // Refresh the user list to show updated status
-        fetchUsers(page, searchTerm)
+        // Refresh list to show updated status
+        fetchUsers(page, searchTerm, statusFilter)
       } else {
         const data = await res.json()
-        throw new Error(data.message || 'Failed to update user suspension status')
+        throw new Error(
+          data.message || 'Failed to update user suspension status'
+        )
       }
     } catch (error: any) {
       console.error('Failed to update suspension status:', error)
       toast({
         title: 'Error',
         description: error.message || 'An unexpected error occurred.',
-        variant: 'destructive'
+        variant: 'destructive',
       })
     } finally {
       setIsSuspending(false)
@@ -332,194 +277,190 @@ export default function UsersPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto py-8">
-        {/* Filter Buttons */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => handleStatusFilterChange('all')}
-              className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm
-                ${statusFilter === 'all'
-                  ? 'bg-purple-600 text-white hover:bg-purple-700'
-                  : 'bg-white text-purple-700 border border-purple-300 hover:bg-purple-50'}
-              `}
-            >
-              All Users
-            </button>
-            <button
-              onClick={() => handleStatusFilterChange('active')}
-              className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm
-                ${statusFilter === 'active'
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-white text-green-700 border border-green-300 hover:bg-green-50'}
-              `}
-            >
-              Active
-            </button>
-            <button
-              onClick={() => handleStatusFilterChange('suspended')}
-              className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm
-                ${statusFilter === 'suspended'
-                  ? 'bg-red-600 text-white hover:bg-red-700'
-                  : 'bg-white text-red-700 border border-red-300 hover:bg-red-50'}
-              `}
-            >
-              Suspended
-            </button>
-          </div>
+          {/* Filter and Action Buttons */}
+          <div className="grid grid-cols-2 gap-4 items-center">
+            {/* Filter Tabs */}
+              <Select onValueChange={(value) => setStatusFilter(value)} value={statusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter Users" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
 
-          <div className="flex flex-wrap justify-end gap-3">
-            <button
-              onClick={() => setIsBulkModalOpen(true)}
-              disabled={selectedUsers.length === 0}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-sm"
-            >
-              Send to Selected ({selectedUsers.length})
-            </button>
-            <button
-              onClick={() => {
-                setSelectedUsers([])
-                setIsBulkModalOpen(true)
-              }}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 shadow-sm"
-            >
-              Send to All
-            </button>
-          </div>
-        </div>
-
-        {/* Table and Pagination - unchanged */}
-        <div className="bg-white rounded-xl shadow-md overflow-hidden">
-          {loading ? (
-            <div className="flex justify-center items-center p-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="default"
+                    className="bg-purple-700 text-white hover:bg-purple-800 rounded-full px-6 py-2 shadow-lg transform hover:scale-105 transition-all"
+                  >
+                    Message <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem
+                    onClick={handleSendToSelected}
+                    disabled={selectedUsers.length === 0}
+                  >
+                    Send to Selected ({selectedUsers.length})
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSendToAll}>
+                    Send to All
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-purple-100">
-                  <thead className="bg-purple-50">
-                    <tr>
-                      <th className="px-6 py-3">
-                        <input
-                          type="checkbox"
-                          onChange={handleSelectAll}
-                          checked={
-                            users.length > 0 &&
-                            selectedUsers.length === users.length
-                          }
-                        />
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
-                        Full Name
-                      </th>
-                      <th className="px-6 py-4 text-right text-xs font-medium text-purple-800 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-purple-100">
-                    {users.length > 0 ? (
-                      users.map((user) => (
-                        <tr
-                          key={user.id}
-                          className="hover:bg-purple-50 transition-colors"
-                        >
-                          <td className="px-6 py-4">
-                            <input
-                              type="checkbox"
-                              checked={selectedUsers.includes(user.id)}
-                              onChange={() => handleSelectUser(user.id)}
-                            />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-purple-900">
-                              {user.full_name}
-                              {user.is_suspended && (
-                                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-800 border border-red-200">
-                                  Suspended
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-purple-500">
-                              {user.email}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end space-x-3">
-                              <button
-                                onClick={() => openModal(user)}
-                                className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-100 transition-colors"
-                                title="Send Message"
-                              >
-                                <MessageSquare className="w-5 h-5" />
-                              </button>
-                              <button
-                                onClick={() => handleToggleSuspension(user)}
-                                disabled={isSuspending}
-                                className={user.is_suspended 
-                                  ? "text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-100 transition-colors" 
-                                  : "text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-100 transition-colors"}
-                                title={user.is_suspended ? "Unsuspend User" : "Suspend User"}
-                              >
-                                <Ban className={`w-5 h-5 ${user.is_suspended ? "text-blue-600" : "text-red-600"}`} />
-                              </button>
-                              <Link
-                                href={`/admin/users/${user.id}`}
-                                className="text-purple-600 hover:text-purple-900 p-1 rounded-full hover:bg-purple-100 transition-colors"
-                                title="View"
-                              >
-                                <Eye className="w-5 h-5" />
-                              </Link>
+        <div className="border-t">
+          <div className="bg-white rounded-xl shadow-md overflow-hidden">
+            {loading ? (
+              <div className="flex justify-center items-center p-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12 text-red-500">{error}</div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-purple-100">
+                    <thead className="bg-purple-50">
+                      <tr>
+                        <th className="px-2 py-3">
+                          <input
+                            type="checkbox"
+                            onChange={handleSelectAll}
+                            checked={
+                              users.length > 0 &&
+                              selectedUsers.length === users.length
+                            }
+                          />
+                        </th>
+                        <th className="px-2 py-4 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
+                          Full Name
+                        </th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-purple-800 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-purple-100">
+                      {users.length > 0 ? (
+                        users.map((user) => (
+                          <tr
+                            key={user.id}
+                            className="hover:bg-purple-50 transition-colors"
+                          >
+                            <td className="px-2 py-4">
+                              <input
+                                type="checkbox"
+                                checked={selectedUsers.includes(user.id)}
+                                onChange={() => handleSelectUser(user.id)}
+                              />
+                            </td>
+                            <td className="px-2 py-4">
+                              <div className="text-sm font-medium text-purple-900">
+                                {user.full_name}
+                                {user.is_suspended && (
+                                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-800 border border-red-200">
+                                    Suspended
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-purple-500">
+                                {user.email}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right text-sm font-medium">
+                              <div className="flex justify-end space-x-3">
+                                <button
+                                  onClick={() => openModal(user)}
+                                  className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-100 transition-colors"
+                                  title="Send Message"
+                                >
+                                  <MessageSquare className="w-5 h-5" />
+                                </button>
+                                <button
+                                  onClick={() => handleToggleSuspension(user)}
+                                  disabled={isSuspending}
+                                  className={
+                                    user.is_suspended
+                                      ? 'text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-100 transition-colors'
+                                      : 'text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-100 transition-colors'
+                                  }
+                                  title={
+                                    user.is_suspended
+                                      ? 'Unsuspend User'
+                                      : 'Suspend User'
+                                  }
+                                >
+                                  <Ban
+                                    className={`w-5 h-5 ${
+                                      user.is_suspended
+                                        ? 'text-blue-600'
+                                        : 'text-red-600'
+                                    }`}
+                                  />
+                                </button>
+                                <Link
+                                  href={`/admin/users/${user.id}`}
+                                  className="text-purple-600 hover:text-purple-900 p-1 rounded-full hover:bg-purple-100 transition-colors"
+                                  title="View"
+                                >
+                                  <Eye className="w-5 h-5" />
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="px-6 py-8 text-center"
+                          >
+                            <div className="text-purple-500">
+                              No users found
                             </div>
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="px-6 py-8 text-center"
-                        >
-                          <div className="text-purple-500">
-                            No users found
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
 
-              {/* Pagination */}
-              <div className="bg-purple-50 px-6 py-3 flex items-center justify-between border-t border-purple-100">
-                <button
-                  onClick={handlePrev}
-                  disabled={page === 1}
-                  className={`px-4 py-2 rounded-md font-medium ${
-                    page === 1
-                      ? "text-purple-300 cursor-not-allowed"
-                      : "text-purple-700 hover:bg-purple-100"
-                  }`}
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-purple-600 font-medium">
-                  Page {page} of {Math.ceil(totalUsers / perPage)}
-                </span>
-                <button
-                  onClick={handleNext}
-                  disabled={page * perPage >= totalUsers}
-                  className={`px-4 py-2 rounded-md font-medium ${
-                    page * perPage >= totalUsers
-                      ? "text-purple-300 cursor-not-allowed"
-                      : "text-purple-700 hover:bg-purple-100"
-                  }`}
-                >
-                  Next
-                </button>
-              </div>
-            </>
-          )}
+                {/* Pagination */}
+                <div className="bg-purple-50 px-6 py-3 flex items-center justify-between border-t border-purple-100">
+                  <button
+                    onClick={handlePrev}
+                    disabled={page === 1}
+                    className={`px-4 py-2 rounded-md font-medium ${
+                      page === 1
+                        ? 'text-purple-300 cursor-not-allowed'
+                        : 'text-purple-700 hover:bg-purple-100'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-purple-600 font-medium">
+                    Page {page} of {Math.ceil(totalUsers / perPage)}
+                  </span>
+                  <button
+                    onClick={handleNext}
+                    disabled={page * perPage >= totalUsers}
+                    className={`px-4 py-2 rounded-md font-medium ${
+                      page * perPage >= totalUsers
+                        ? 'text-purple-300 cursor-not-allowed'
+                        : 'text-purple-700 hover:bg-purple-100'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
       {selectedUser && (
@@ -531,13 +472,99 @@ export default function UsersPage() {
           isSending={isSending}
         />
       )}
-       <SendMessageModal
+      <SendMessageModal
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
         onSend={handleSendBulkMessage}
-        userName={selectedUsers.length > 0 ? `${selectedUsers.length} users` : "all users"}
+        userName={
+          selectedUsers.length > 0
+            ? `${selectedUsers.length} users`
+            : 'all users'
+        }
         isSending={isSending}
       />
+    </div>
+  )
+}
+
+
+function SendMessageModal({
+  isOpen,
+  onClose,
+  onSend,
+  userName,
+  isSending,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onSend: (message: string, title: string) => void
+  userName: string
+  isSending: boolean
+}) {
+  const [title, setTitle] = useState('')
+  const [message, setMessage] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!title.trim() || !message.trim()) return
+    onSend(title, message)
+    setTitle('')
+    setMessage('')
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h2 className="text-lg font-semibold mb-4">
+          Send Message to {userName}
+        </h2>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="Enter message title"
+              required
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Message
+            </label>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              rows={4}
+              placeholder="Enter your message"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSending || !title.trim() || !message.trim()}
+              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isSending ? 'Sending...' : 'Send'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
