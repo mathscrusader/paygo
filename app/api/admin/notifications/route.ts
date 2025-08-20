@@ -2,8 +2,10 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabaseAdmin"
+import prisma from '@/lib/prisma';  // Assuming this is your Prisma client import
 
 export async function GET() {
   const cookieStore = cookies()
@@ -58,29 +60,32 @@ export async function GET() {
   return NextResponse.json(notifications)
 }
 
-export async function POST(req: Request) {
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-  const { data: { session } } = await supabase.auth.getSession();
+export async function POST(request: Request) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
-  console.log('Session:', session);  // Debug: Log the entire session object
+  const { data: { session } } = await supabase.auth.getSession();
+  console.log('Session:', session);  // Debug log
 
   if (!session) {
-    console.log('No session found');  // Debug: Log if no session
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    console.log('No session found');
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: user, error: userError } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", session.user.id)
-    .single();
+  const sessionUserId = session.user.id;
 
-  console.log('User Admin Status:', user?.is_admin);  // Debug: Log the admin status
+  // Check admin status using Prisma User table
+  const user = await prisma.user.findUnique({
+    where: { id: sessionUserId },
+  });
 
-  if (userError || !user?.is_admin) {
-    console.log('Forbidden: User is not admin');  // Debug: Log if admin check fails
-    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  console.log('User from Prisma:', user);  // Debug log
+
+  if (!user || user.role !== 'ADMIN') {
+    console.log('Forbidden: User is not admin');
+    return NextResponse.json({ message: 'Forbidden: User is not admin' }, { status: 403 });
   }
 
   // Remove the following NextAuth role check as it's redundant with Supabase

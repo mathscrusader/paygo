@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
-import { ArrowLeft, Eye, MessageSquare, Search } from "lucide-react"
+import { ArrowLeft, Eye, MessageSquare, Search, Ban } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 // We need a separate modal component to avoid re-rendering the whole page
@@ -102,32 +102,33 @@ export default function UsersPage() {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [isSending, setIsSending] = useState(false)
+  const [isSuspending, setIsSuspending] = useState(false)
   const { toast } = useToast()
   const perPage = 10
 
   const fetchUsers = async (pageNum = 1, term = "") => {
     setLoading(true)
     const offset = (pageNum - 1) * perPage
-
+  
     let query = supabase
       .from("profiles")
-      .select("id, full_name, email", { count: "exact" })
+      .select("id, full_name, email, is_suspended", { count: "exact" })
       .order("full_name", { ascending: true })
       .range(offset, offset + perPage - 1)
-
+  
     if (term.length >= 3) {
       query = query.ilike("full_name", `${term}%`)
     }
-
+  
     const { data, error } = await query
-
+  
     if (error) {
       console.error("Error fetching users:", error)
       setUsers([])
     } else {
       setUsers(data)
     }
-
+  
     setLoading(false)
   }
 
@@ -330,6 +331,11 @@ export default function UsersPage() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-purple-900">
                               {user.full_name}
+                              {user.is_suspended && (
+                                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-800 border border-red-200">
+                                  Suspended
+                                </span>
+                              )}
                             </div>
                             <div className="text-xs text-purple-500">
                               {user.email}
@@ -343,6 +349,14 @@ export default function UsersPage() {
                                 title="Send Message"
                               >
                                 <MessageSquare className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => handleToggleSuspension(user)}
+                                disabled={isSuspending}
+                                className={`text-${user.is_suspended ? 'blue' : 'red'}-600 hover:text-${user.is_suspended ? 'blue' : 'red'}-900 p-1 rounded-full hover:bg-${user.is_suspended ? 'blue' : 'red'}-100 transition-colors`}
+                                title={user.is_suspended ? "Unsuspend User" : "Suspend User"}
+                              >
+                                <Ban className="w-5 h-5" />
                               </button>
                               <Link
                                 href={`/admin/users/${user.id}`}

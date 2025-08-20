@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { MessageSquare } from "lucide-react"
+import { MessageSquare, Ban, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 export function UserActions({ user }: { user: any }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [isSuspending, setIsSuspending] = useState(false)
   const { toast } = useToast()
 
   const handleSendMessage = async (title: string, message: string) => {
@@ -40,6 +41,43 @@ export function UserActions({ user }: { user: any }) {
     }
   }
 
+  const handleToggleSuspension = async () => {
+    setIsSuspending(true)
+    try {
+      const res = await fetch("/api/admin/users/suspend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          userId: user.id, 
+          suspend: !user.is_suspended 
+        }),
+      })
+
+      if (res.ok) {
+        toast({
+          title: user.is_suspended ? "User Unsuspended" : "User Suspended",
+          description: user.is_suspended 
+            ? "The user has been unsuspended and can now access their account." 
+            : "The user has been suspended and cannot access their account.",
+        })
+        // Update the user object to reflect the new suspension status
+        user.is_suspended = !user.is_suspended
+      } else {
+        const data = await res.json()
+        throw new Error(data.message || 'Failed to update user suspension status')
+      }
+    } catch (error: any) {
+      console.error('Failed to update suspension status:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'An unexpected error occurred.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSuspending(false)
+    }
+  }
+
   return (
     <>
       <div className="flex items-center gap-4">
@@ -50,15 +88,36 @@ export function UserActions({ user }: { user: any }) {
           <MessageSquare className="w-4 h-4" />
           Send Message
         </button>
+        <button
+          onClick={handleToggleSuspension}
+          disabled={isSuspending}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${user.is_suspended ? "bg-blue-600 hover:bg-blue-700" : "bg-red-600 hover:bg-red-700"} ${isSuspending ? "opacity-70 cursor-not-allowed" : ""}`}
+        >
+          {user.is_suspended ? (
+            <>
+              <Check className="w-4 h-4" />
+              Unsuspend
+            </>
+          ) : (
+            <>
+              <Ban className="w-4 h-4" />
+              Suspend
+            </>
+          )}
+        </button>
         <span
-          className={`px-3 py-1 rounded-full text-xs font-medium ${
-            user.is_admin
+          className={`px-3 py-1 rounded-full text-xs font-medium ${user.is_admin
               ? "bg-purple-100 text-purple-800 border border-purple-200"
               : "bg-white text-purple-700 border border-purple-200"
-          }`}
+            }`}
         >
           {user.is_admin ? "Admin" : "User"}
         </span>
+        {user.is_suspended && (
+          <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+            Suspended
+          </span>
+        )}
       </div>
       <SendMessageModal
         isOpen={isModalOpen}

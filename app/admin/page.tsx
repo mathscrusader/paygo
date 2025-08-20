@@ -5,6 +5,7 @@ import Link from "next/link"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { supabaseAdmin } from "@/lib/supabaseAdmin"
 
+
 export default async function AdminPage() {
   const session = await getServerSession(authOptions)
   if (!session || (session.user as any).role !== "ADMIN") {
@@ -104,6 +105,8 @@ export default async function AdminPage() {
             <span className="px-3 py-1 text-xs font-bold bg-white/20 text-white rounded-xl backdrop-blur-sm border border-white/20 shadow-lg">
               ADMIN
             </span>
+            {/* Replace the button with the client component */}
+            {/* LogoutButton removed */}
           </div>
         </div>
       </header>
@@ -194,10 +197,7 @@ export default async function AdminPage() {
         <div className="mb-8">
           <h2 className="text-lg font-bold text-gray-800 mb-4 ml-1">Quick Actions</h2>
           <div className="grid grid-cols-3 gap-4">
-            {[
-              "payid",
-              "packages",
-              "withdrawals",
+            {[ "payid", "packages", "withdrawals",
               "history",
               "earn",
               "users",
