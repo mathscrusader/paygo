@@ -103,10 +103,12 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [isSending, setIsSending] = useState(false)
   const [isSuspending, setIsSuspending] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all')
+  const [totalUsers, setTotalUsers] = useState(0) // Added for proper pagination
   const { toast } = useToast()
   const perPage = 10
 
-  const fetchUsers = async (pageNum = 1, term = "") => {
+  const fetchUsers = async (pageNum = 1, term = "", status = 'all') => {
     setLoading(true)
     const offset = (pageNum - 1) * perPage
   
@@ -120,28 +122,52 @@ export default function UsersPage() {
       query = query.ilike("full_name", `${term}%`)
     }
   
-    const { data, error } = await query
+    // Add status filter
+    if (status === 'active') {
+      query = query.eq("is_suspended", false)
+    } else if (status === 'suspended') {
+      query = query.eq("is_suspended", true)
+    }
+  
+    const { data, error, count } = await query
   
     if (error) {
       console.error("Error fetching users:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch users.",
+        variant: "destructive",
+      })
       setUsers([])
+      setTotalUsers(0)
     } else {
-      setUsers(data)
+      setUsers(data || [])
+      setTotalUsers(count || 0)
     }
   
     setLoading(false)
   }
 
   useEffect(() => {
-    fetchUsers(page, searchTerm)
-  }, [page, searchTerm])
+    fetchUsers(page, searchTerm, statusFilter)
+  }, [page, searchTerm, statusFilter])
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
     setPage(1)
   }
 
-  const handleNext = () => setPage((prev) => prev + 1)
+  const handleStatusFilterChange = (status: 'all' | 'active' | 'suspended') => {
+    setStatusFilter(status)
+    setPage(1)
+  }
+
+  const handleNext = () => {
+    if (page * perPage < totalUsers) {
+      setPage((prev) => prev + 1)
+    }
+  }
+  
   const handlePrev = () => setPage((prev) => (prev > 1 ? prev - 1 : 1))
 
   const handleSelectUser = (userId: string) => {
@@ -306,24 +332,62 @@ export default function UsersPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto py-8">
-        <div className="mb-4 flex justify-end gap-2">
+        {/* Filter Buttons */}
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex flex-wrap gap-3">
             <button
-                onClick={() => setIsBulkModalOpen(true)}
-                disabled={selectedUsers.length === 0}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+              onClick={() => handleStatusFilterChange('all')}
+              className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm
+                ${statusFilter === 'all'
+                  ? 'bg-purple-600 text-white hover:bg-purple-700'
+                  : 'bg-white text-purple-700 border border-purple-300 hover:bg-purple-50'}
+              `}
             >
-                Send to Selected ({selectedUsers.length})
+              All Users
             </button>
             <button
-                onClick={() => {
-                    setSelectedUsers([]); // Clear selections
-                    setIsBulkModalOpen(true);
-                }}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+              onClick={() => handleStatusFilterChange('active')}
+              className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm
+                ${statusFilter === 'active'
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-white text-green-700 border border-green-300 hover:bg-green-50'}
+              `}
             >
-                Send to All
+              Active
             </button>
+            <button
+              onClick={() => handleStatusFilterChange('suspended')}
+              className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm
+                ${statusFilter === 'suspended'
+                  ? 'bg-red-600 text-white hover:bg-red-700'
+                  : 'bg-white text-red-700 border border-red-300 hover:bg-red-50'}
+              `}
+            >
+              Suspended
+            </button>
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-3">
+            <button
+              onClick={() => setIsBulkModalOpen(true)}
+              disabled={selectedUsers.length === 0}
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-sm"
+            >
+              Send to Selected ({selectedUsers.length})
+            </button>
+            <button
+              onClick={() => {
+                setSelectedUsers([])
+                setIsBulkModalOpen(true)
+              }}
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 shadow-sm"
+            >
+              Send to All
+            </button>
+          </div>
         </div>
+
+        {/* Table and Pagination - unchanged */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden">
           {loading ? (
             <div className="flex justify-center items-center p-12">
@@ -440,13 +504,13 @@ export default function UsersPage() {
                   Previous
                 </button>
                 <span className="text-sm text-purple-600 font-medium">
-                  Page {page}
+                  Page {page} of {Math.ceil(totalUsers / perPage)}
                 </span>
                 <button
                   onClick={handleNext}
-                  disabled={users.length < perPage}
+                  disabled={page * perPage >= totalUsers}
                   className={`px-4 py-2 rounded-md font-medium ${
-                    users.length < perPage
+                    page * perPage >= totalUsers
                       ? "text-purple-300 cursor-not-allowed"
                       : "text-purple-700 hover:bg-purple-100"
                   }`}

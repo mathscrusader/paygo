@@ -1,0 +1,47 @@
+// ... existing code ...
+<div className="flex flex-col gap-4 mb-6">
+  {/* First Row - Filter Buttons */}
+  <div className="flex gap-4">
+    <Button 
+      variant={statusFilter === 'all' ? 'default' : 'outline'}
+      onClick={() => setStatusFilter('all')}
+      className="flex-1"
+    >
+      All Users
+    </Button>
+    <Button 
+      variant={statusFilter === 'active' ? 'default' : 'outline'}
+      onClick={() => setStatusFilter('active')}
+      className="flex-1"
+    >
+      Active
+    </Button>
+    <Button 
+      variant={statusFilter === 'suspended' ? 'default' : 'outline'}
+      onClick={() => setStatusFilter('suspended')}
+      className="flex-1"
+    >
+      Suspended
+    </Button>
+  </div>
+
+  {/* Second Row - Action Buttons */}
+  <div className="flex gap-4">
+    <Button 
+      variant="default" 
+      onClick={handleSendToSelected}
+      disabled={selectedUsers.length === 0}
+      className="flex-1"
+    >
+      Send to Selected ({selectedUsers.length})
+    </Button>
+    <Button 
+      variant="default" 
+      onClick={handleSendToAll}
+      className="flex-1"
+    >
+      Send to All
+    </Button>
+  </div>
+</div>
+// ... existing code ...
