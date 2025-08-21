@@ -98,18 +98,13 @@ export default function DashboardPage() {
         balance = Number(walletRow.balance) || 0
       }
 
-      const { data: rewardsData } = await supabase
-        .from("ReferralRewards")
-        .select("reward_amount")
-        .eq("referrer_id", session.user.id)
-        .eq("status", "pending")
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("reward_balance")
+        .eq("id", session.user.id)
+        .single()
 
-      if (rewardsData?.length) {
-        weeklyRewards = rewardsData.reduce(
-          (sum, r) => sum + (r.reward_amount || 0),
-          0
-        )
-      }
+      weeklyRewards = profileData?.reward_balance || 0
 
       const { data: payRow } = await supabase
         .from("payid")
@@ -127,16 +122,16 @@ export default function DashboardPage() {
         profilePicture,
       })
 
-      const { data: profileData } = await supabase
+      const { data: upgradeProfile } = await supabase
         .from("profiles")
         .select("upgrade_level_id")
         .eq("id", session.user.id)
         .maybeSingle()
-      if (profileData?.upgrade_level_id) {
+      if (upgradeProfile?.upgrade_level_id) {
         const { data: levelData } = await supabase
           .from("UpgradeLevel")
           .select("id, name")
-          .eq("id", profileData.upgrade_level_id)
+          .eq("id", upgradeProfile.upgrade_level_id)
           .maybeSingle()
         if (levelData) setCurrentLevel(levelData)
       }

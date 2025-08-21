@@ -14,6 +14,7 @@ export async function GET() {
         account_number,
         method,
         status,
+        withdrawal_type,
         created_at,
         profiles (
           full_name

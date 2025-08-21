@@ -7,11 +7,12 @@ interface Withdrawal {
   id: string
   user_id: string
   amount: number
-  bank_name: string
   account_name: string
+  bank_name: string
   account_number: string
-  status: string
   method: string
+  status: string
+  withdrawal_type?: string
   created_at: string
   profiles?: {
     full_name: string
@@ -26,6 +27,7 @@ export default function AdminWithdrawalsPage() {
   const [selected, setSelected] = useState<Withdrawal | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
+  const [typeFilter, setTypeFilter] = useState<"all" | "regular" | "reward">("all")
 
   const PER_PAGE = 10
 
@@ -75,11 +77,19 @@ export default function AdminWithdrawalsPage() {
   }, [])
 
   useEffect(() => {
-    const filteredData =
-      filter === "all" ? withdrawals : withdrawals.filter(w => w.status === filter)
+    let filteredData = withdrawals
+    
+    if (filter !== "all") {
+      filteredData = filteredData.filter(w => w.status === filter)
+    }
+    
+    if (typeFilter !== "all") {
+      filteredData = filteredData.filter(w => (w.withdrawal_type || 'regular') === typeFilter)
+    }
+    
     setFiltered(filteredData)
     setCurrentPage(1)
-  }, [withdrawals, filter])
+  }, [withdrawals, filter, typeFilter])
 
   useEffect(() => {
     const start = (currentPage - 1) * PER_PAGE
@@ -102,19 +112,38 @@ export default function AdminWithdrawalsPage() {
       </header>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        {["all", "pending", "approved", "rejected"].map(f => (
-          <button
-            key={f}
-            className={`px-3 py-1 rounded text-sm font-medium ${
-              filter === f
-                ? "bg-[#34296B] text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-            onClick={() => setFilter(f as any)}
-          >
-            {f.charAt(0).toUpperCase() + f.slice(1)}
-          </button>
-        ))}
+        <div className="flex flex-wrap gap-2">
+          <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
+          {["all", "pending", "approved", "rejected"].map(f => (
+            <button
+              key={f}
+              className={`px-3 py-1 rounded text-sm font-medium ${
+                filter === f
+                  ? "bg-[#34296B] text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+              onClick={() => setFilter(f as any)}
+            >
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="text-sm font-medium text-gray-700 mr-2">Type:</span>
+          {["all", "regular", "reward"].map(t => (
+            <button
+              key={t}
+              className={`px-3 py-1 rounded text-sm font-medium ${
+                typeFilter === t
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+              onClick={() => setTypeFilter(t as any)}
+            >
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {message && (
@@ -155,17 +184,28 @@ export default function AdminWithdrawalsPage() {
   >
     View withdrawal details
   </button>
-  <span
-    className={`text-xs font-semibold rounded-full px-2 py-0.5 ${
-      w.status === "approved"
-        ? "bg-green-100 text-green-700"
-        : w.status === "pending"
-        ? "bg-yellow-100 text-yellow-700"
-        : "bg-red-100 text-red-700"
-    }`}
-  >
-    {w.status}
-  </span>
+  <div className="flex items-center gap-2">
+    <span
+      className={`text-xs font-semibold rounded-full px-2 py-0.5 ${
+        w.withdrawal_type === 'reward' 
+          ? 'bg-purple-100 text-purple-700' 
+          : 'bg-blue-100 text-blue-700'
+      }`}
+    >
+      {w.withdrawal_type || 'regular'}
+    </span>
+    <span
+      className={`text-xs font-semibold rounded-full px-2 py-0.5 ${
+        w.status === "approved"
+          ? "bg-green-100 text-green-700"
+          : w.status === "pending"
+          ? "bg-yellow-100 text-yellow-700"
+          : "bg-red-100 text-red-700"
+      }`}
+    >
+      {w.status}
+    </span>
+  </div>
 </div>
 
 
@@ -209,6 +249,9 @@ export default function AdminWithdrawalsPage() {
             </div>
             <div>
               <strong>Method:</strong> {selected.method}
+            </div>
+            <div>
+              <strong>Type:</strong> {selected.withdrawal_type || 'regular'}
             </div>
             <div>
               <strong>Status:</strong>{" "}

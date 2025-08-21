@@ -18,6 +18,7 @@ export default function WithdrawReferralPage() {
   const [accountName, setAccountName] = useState("")
   const [accountNumber, setAccountNumber] = useState("")
   const [bank, setBank] = useState("")
+  const [amount, setAmount] = useState("")
   const [referralBalance, setReferralBalance] = useState(0)
   const [showSchedulePopup, setShowSchedulePopup] = useState(false)
   const [message, setMessage] = useState("")
@@ -47,6 +48,8 @@ export default function WithdrawReferralPage() {
   const handleSubmit = async () => {
     setMessage("")
 
+    const withdrawalAmount = parseInt(amount)
+
     if (!accountName || !accountNumber || !bank) {
       setMessage("Please fill all required fields.")
       return
@@ -57,9 +60,20 @@ export default function WithdrawReferralPage() {
       return
     }
 
+    if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
+      setMessage("Please enter a valid withdrawal amount.")
+      return
+    }
+
+    // Check if user qualifies for any amount withdrawal
     if (referralBalance < 20000) {
       const shortfall = 20000 - referralBalance
-      setMessage(`Minimum withdrawal is ₦20,000. You’re short by ₦${shortfall.toLocaleString()}.`)
+      setMessage(`First withdrawal minimum is ₦20,000. You're short by ₦${shortfall.toLocaleString()}.`)
+      return
+    }
+
+    if (withdrawalAmount > referralBalance) {
+      setMessage("Insufficient balance for this withdrawal amount.")
       return
     }
 
@@ -70,9 +84,10 @@ export default function WithdrawReferralPage() {
         account_name: accountName,
         bank_name: bank,
         account_number: accountNumber,
-        amount: referralBalance,
+        amount: withdrawalAmount,
         status: "pending",
         method: "bank",
+        withdrawal_type: "reward",
       },
     ])
 
@@ -192,6 +207,25 @@ export default function WithdrawReferralPage() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="amount" className="text-gray-700 font-medium">
+            Withdrawal Amount
+          </label>
+          <Input
+            id="amount"
+            type="number"
+            placeholder="Enter amount to withdraw"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="border-purple-200 rounded-lg p-3 h-14"
+            min="1"
+            max={referralBalance}
+          />
+          <p className="text-xs text-gray-500">
+            Available: ₦{referralBalance.toLocaleString()}
+          </p>
         </div>
 
         {message && (

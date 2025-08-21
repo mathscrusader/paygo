@@ -17,9 +17,15 @@ export default function ReferralRewardsPage() {
     accountName: "",
     bankName: "",
     accountNumber: "",
-    amount: "",
+    amount: ""
   })
   const [message, setMessage] = useState("")
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successData, setSuccessData] = useState({
+    amount: 0,
+    method: "",
+    type: ""
+  })
 
   useEffect(() => {
     if (!session) return
@@ -61,16 +67,11 @@ export default function ReferralRewardsPage() {
   }, [session])
 
   const handleWithdraw = async () => {
-    const amount = parseInt(form.amount)
+    setMessage("")
 
-    if (isNaN(amount)) {
+    const amount = parseFloat(form.amount)
+    if (isNaN(amount) || amount <= 0) {
       setMessage("Please enter a valid amount.")
-      return
-    }
-
-    if (amount < 20000) {
-      const remaining = 20000 - amount
-      setMessage(`Minimum withdrawal is ₦20,000. You’re short by ₦${remaining.toLocaleString()}.`)
       return
     }
 
@@ -79,42 +80,217 @@ export default function ReferralRewardsPage() {
       return
     }
 
-    if (withdrawToWallet) {
-      const { error: walletError } = await supabase.rpc("credit_wallet", {
-        user_id: session.user.id,
-        amount: amount,
-      })
-      if (walletError) {
-        setMessage("Failed to credit wallet.")
-        return
-      }
-    } else {
-      const { error } = await supabase.from("Withdrawals").insert([
-        {
-          user_id: session.user.id,
-          account_name: form.accountName,
-          bank_name: form.bankName,
-          account_number: form.accountNumber,
-          amount: amount,
-          status: "pending",
-          method: "bank",
-        },
-      ])
-      if (error) {
-        setMessage("Failed to submit withdrawal request.")
-        return
-      }
+    console.log("=== WITHDRAWAL VALIDATION ===")
+    console.log("Available balance:", balance)
+    console.log("Requested amount:", amount)
+    console.log("New balance would be:", balance - amount)
+
+    // Check if user qualifies for any amount withdrawal
+    if (balance < 20000) {
+      const shortfall = 20000 - balance
+      setMessage(`First withdrawal minimum is ₦20,000. You're short by ₦${shortfall.toLocaleString()}.`)
+      return
     }
 
-    await supabase
-      .from("profiles")
-      .update({ reward_balance: balance - amount })
-      .eq("id", session.user.id)
+    if (withdrawToWallet) {
+      try {
+        console.log("=== WALLET WITHDRAWAL DEBUG ===")
+        console.log("User ID:", session.user.id)
+        console.log("Amount:", amount)
+        console.log("Available Balance:", balance)
+        console.log("New Balance:", balance - amount)
 
-    setBalance(prev => prev - amount)
-    setMessage("Withdrawal submitted successfully!")
-    setShowForm(false)
-    setForm({ accountName: "", bankName: "", accountNumber: "", amount: "" })
+        // Validate user session
+        if (!session || !session.user || !session.user.id) {
+          setMessage("Authentication error: Please sign in again.")
+          return
+        }
+
+        // First update the reward balance
+        console.log("Step 1: Updating reward balance...")
+        console.log("Current balance:", balance, "New balance:", balance - amount)
+        
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ reward_balance: balance - amount })
+          .eq("id", session.user.id)
+
+        if (updateError) {
+          console.error("Profile update failed:", {
+            error: updateError,
+            code: updateError.code,
+            details: updateError.details,
+            hint: updateError.hint,
+            message: updateError.message
+          })
+          
+          // Check if it's an RLS error
+          if (updateError.code === '42501' || updateError.message.includes('policy')) {
+            console.error("RLS Policy violation detected. Please ensure RLS policies are configured correctly.")
+            setMessage("Permission denied: Please contact support to enable withdrawal permissions.")
+          } else {
+            setMessage(`Reward balance update failed: ${updateError.message || updateError.details || 'Database error'}`)
+          }
+          return
+        }
+
+        // Then credit the wallet
+        console.log("Step 2: Crediting wallet...")
+        const walletAmount = Math.floor(amount)
+        console.log("Wallet credit amount:", walletAmount)
+        
+        const { data: walletResult, error: walletError } = await supabase
+          .rpc('credit_user_wallet', {
+            user_id: session.user.id,
+            amount: walletAmount
+          })
+        
+        if (walletError) {
+          console.error("Wallet credit failed:", {
+            error: walletError,
+            code: walletError.code,
+            details: walletError.details,
+            hint: walletError.hint,
+            message: walletError.message
+          })
+          setMessage(`Wallet credit failed: ${walletError.message || walletError.details || 'Database error'}`)
+          
+          // Rollback the reward balance update
+          console.log("Rolling back reward balance...")
+          await supabase
+            .from("profiles")
+            .update({ reward_balance: balance })
+            .eq("id", session.user.id)
+            
+          return
+        }
+        
+        console.log("Step 3: Success! Wallet credited:", walletResult)
+        setBalance(prev => prev - amount)
+        setSuccessData({
+          amount: amount,
+          method: "Wallet",
+          type: "wallet"
+        })
+        setShowSuccessModal(true)
+        setShowForm(false)
+        setForm({ accountName: "", bankName: "", accountNumber: "", amount: "" })
+        
+      } catch (error) {
+        console.error("Unexpected error during wallet withdrawal:", error)
+        setMessage(`Unexpected error: ${error instanceof Error ? error.message : 'Please check your connection and try again'}`)
+        return
+      }
+      return // Exit after wallet withdrawal
+    }
+
+    // Bank withdrawal validation
+    if (!form.accountName || !form.bankName || !form.accountNumber) {
+      setMessage("Please fill all required bank details.")
+      return
+    }
+
+    if (form.accountNumber.length !== 10) {
+      setMessage("Account number must be exactly 10 digits.")
+      return
+    }
+
+    // Enhanced bank withdrawal with detailed error handling
+    try {
+      console.log("=== BANK WITHDRAWAL DEBUG ===")
+      console.log("User ID:", session.user.id)
+      console.log("Amount:", amount)
+      console.log("Bank Details:", {
+        accountName: form.accountName,
+        bankName: form.bankName,
+        accountNumber: form.accountNumber
+      })
+
+      // Validate user session
+      if (!session || !session.user || !session.user.id) {
+        setMessage("Authentication error: Please sign in again.")
+        return
+      }
+
+      // Step 1: Update reward balance
+      console.log("Step 1: Updating reward balance...")
+      console.log("Current balance:", balance, "New balance:", balance - amount)
+      
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ reward_balance: balance - amount })
+        .eq("id", session.user.id)
+
+      if (updateError) {
+        console.error("Profile update failed:", {
+          error: updateError,
+          code: updateError.code,
+          details: updateError.details,
+          hint: updateError.hint,
+          message: updateError.message
+        })
+        
+        // Check if it's an RLS error
+        if (updateError.code === '42501' || updateError.message.includes('policy')) {
+          console.error("RLS Policy violation detected. Please ensure RLS policies are configured correctly.")
+          setMessage("Permission denied: Please contact support to enable withdrawal permissions.")
+        } else {
+          setMessage(`Reward balance update failed: ${updateError.message || updateError.details || 'Database error'}`)
+        }
+        return
+      }
+
+      // Step 2: Create withdrawal record
+      console.log("Step 2: Creating withdrawal record...")
+      const withdrawalData = {
+        user_id: session.user.id,
+        amount: amount,
+        status: "pending",
+        account_name: form.accountName,
+        bank_name: form.bankName,
+        account_number: form.accountNumber,
+        method: "bank",
+        withdrawal_type: "reward"
+      }
+      
+      console.log("Withdrawal data:", withdrawalData)
+      
+      const { error: withdrawalError } = await supabase.from("Withdrawals").insert(withdrawalData)
+
+      if (withdrawalError) {
+        console.error("Withdrawal creation failed:", {
+          error: withdrawalError,
+          code: withdrawalError.code,
+          details: withdrawalError.details,
+          hint: withdrawalError.hint,
+          message: withdrawalError.message
+        })
+        setMessage(`Withdrawal request failed: ${withdrawalError.message || withdrawalError.details || 'Database error'}`)
+        
+        // Rollback the reward balance update
+        console.log("Rolling back reward balance...")
+        await supabase
+          .from("profiles")
+          .update({ reward_balance: balance })
+          .eq("id", session.user.id)
+            
+        return
+      }
+
+      console.log("Step 3: Success! Withdrawal request created")
+      setBalance(prev => prev - amount)
+      setSuccessData({
+        amount: amount,
+        method: "Bank Transfer",
+        type: "bank"
+      })
+      setShowSuccessModal(true)
+      setShowForm(false)
+      setForm({ accountName: "", bankName: "", accountNumber: "", amount: "" })
+    } catch (error) {
+      console.error("Unexpected error during bank withdrawal:", error)
+      setMessage(`Unexpected error: ${error instanceof Error ? error.message : 'Please check your connection and try again'}`)
+    }
   }
 
   return (
@@ -181,6 +357,10 @@ export default function ReferralRewardsPage() {
               <Input
                 value={form.accountNumber}
                 onChange={e => setForm({ ...form, accountNumber: e.target.value })}
+                maxLength={10}
+                pattern="[0-9]*"
+                inputMode="numeric"
+                placeholder="Enter 10-digit account number"
               />
             </>
           )}
@@ -253,6 +433,32 @@ export default function ReferralRewardsPage() {
         </ul>
       ) : (
         <p className="text-sm text-gray-500">No referral rewards yet.</p>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full text-center shadow-xl">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+              <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Withdrawal Successful!</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {successData.type === 'wallet' 
+                ? `₦${successData.amount.toLocaleString()} has been credited to your wallet successfully.`
+                : `Your withdrawal request of ₦${successData.amount.toLocaleString()} has been submitted successfully. You'll receive your funds within 24-48 hours.`
+              }
+            </p>
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
