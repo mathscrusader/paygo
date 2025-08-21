@@ -45,7 +45,20 @@ export default function LoginPage() {
       return
     }
 
-    router.push("/dashboard")
+    // Check if the user has a WhatsApp number
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('whatsapp_number')
+      .eq('id', data.user.id)
+      .single()
+
+    if (profileError || !profileData || !profileData.whatsapp_number) {
+      // If WhatsApp number is missing, redirect to the WhatsApp input page
+      router.push("/whatsapp-input")
+    } else {
+      // Otherwise, redirect to the dashboard
+      router.push("/dashboard")
+    }
   }
 
   return (

@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { getSupabaseClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
-import Modal from '@/components/Modal'
-import { ArrowLeft, Search, MessageSquare, Ban, Eye, ChevronDown } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+import { ArrowLeft, Search, Ban, ChevronDown, Eye } from 'lucide-react'
+import { FaWhatsapp } from 'react-icons/fa';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import Link from 'next/link'
 
@@ -15,6 +15,7 @@ type User = {
   full_name: string
   email: string
   is_suspended: boolean
+  whatsapp_number: string | null
 }
 
 export default function UsersPage() {
@@ -26,11 +27,6 @@ export default function UsersPage() {
   const [totalUsers, setTotalUsers] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all') // 'all', 'active', 'suspended'
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [isSending, setIsSending] = useState(false)
   const [isSuspending, setIsSuspending] = useState(false)
 
   const { toast } = useToast()
@@ -46,7 +42,7 @@ export default function UsersPage() {
 
         let query = supabase
           .from('profiles')
-          .select('id, full_name, email, is_suspended', { count: 'exact' })
+          .select('id, full_name, email, is_suspended, whatsapp_number', { count: 'exact' })
           .order('created_at', { ascending: false })
           .range(from, to)
 
@@ -89,22 +85,6 @@ export default function UsersPage() {
     setPage(1)
   }
 
-  const handleSelectUser = (userId: string) => {
-    setSelectedUsers((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId]
-    )
-  }
-
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      setSelectedUsers(users.map((user) => user.id))
-    } else {
-      setSelectedUsers([])
-    }
-  }
-
   const handleNext = () => {
     if (page * perPage < totalUsers) {
       setPage(page + 1)
@@ -117,99 +97,13 @@ export default function UsersPage() {
     }
   }
 
-  const openModal = (user: User) => {
-    setSelectedUser(user)
-    setIsModalOpen(true)
-  }
 
-  const closeModal = () => {
-    setSelectedUser(null)
-    setIsModalOpen(false)
-  }
 
-  const handleSendMessage = async (message: string, title: string) => {
-    if (!selectedUser) return
-    setIsSending(true)
-    try {
-      const response = await fetch('/api/admin/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_ids: [selectedUser.id],
-          title,
-          message,
-        }),
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to send message')
-      }
-      toast({
-        title: 'Message Sent',
-        description: `Your message has been sent to ${selectedUser.full_name}.`,
-      })
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      })
-    } finally {
-      setIsSending(false)
-      closeModal()
-    }
-  }
 
-  const handleSendToSelected = () => {
-    if (selectedUsers.length > 0) {
-      setIsBulkModalOpen(true)
-    } else {
-      toast({
-        title: 'No users selected',
-        description: 'Please select at least one user to send a message.',
-        variant: 'destructive',
-      })
-    }
-  }
 
-  const handleSendToAll = () => {
-    setSelectedUsers([]) // Ensure selection is cleared for "all"
-    setIsBulkModalOpen(true)
-  }
 
-  const handleSendBulkMessage = async (message: string, title: string) => {
-    setIsSending(true)
-    try {
-      const response = await fetch('/api/admin/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_ids: selectedUsers.length > 0 ? selectedUsers : undefined, // If empty, API sends to all
-          title,
-          message,
-        }),
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to send bulk message')
-      }
-      toast({
-        title: 'Bulk Message Sent',
-        description: `Your message has been sent to ${
-          selectedUsers.length > 0 ? `${selectedUsers.length} users` : 'all users'
-        }.`,
-      })
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      })
-    } finally {
-      setIsSending(false)
-      setIsBulkModalOpen(false)
-    }
-  }
+
+
 
   const handleToggleSuspension = async (user: User) => {
     setIsSuspending(true)
@@ -250,8 +144,8 @@ export default function UsersPage() {
   return (
     <div className="container mx-auto px-4 min-h-screen bg-purple-50">
       {/* Purple Header Section */}
-      <div className="bg-purple-700 text-white px-6 py-4 rounded-b-lg shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-purple-700 text-white px-6 py-4 rounded-b-lg shadow-md max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <Link
             href="/admin"
             className="flex items-center gap-2 text-purple-100 hover:text-white transition-colors"
@@ -278,41 +172,36 @@ export default function UsersPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto py-8">
           {/* Filter and Action Buttons */}
-          <div className="grid grid-cols-2 gap-4 items-center">
-            {/* Filter Tabs */}
-              <Select onValueChange={(value) => setStatusFilter(value)} value={statusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter Users" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="default"
-                    className="bg-purple-700 text-white hover:bg-purple-800 rounded-full px-6 py-2 shadow-lg transform hover:scale-105 transition-all"
-                  >
-                    Message <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem
-                    onClick={handleSendToSelected}
-                    disabled={selectedUsers.length === 0}
-                  >
-                    Send to Selected ({selectedUsers.length})
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleSendToAll}>
-                    Send to All
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+          <div className="flex gap-4 items-center">
+            <button
+              onClick={() => setStatusFilter('active')}
+              className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                statusFilter === 'active'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-white text-green-600 border border-green-300 hover:bg-green-50'
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setStatusFilter('suspended')}
+              className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                statusFilter === 'suspended'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-white text-red-600 border border-red-300 hover:bg-red-50'
+              }`}
+            >
+              Suspended
+            </button>
+            {statusFilter !== 'all' && (
+              <button
+                onClick={() => setStatusFilter('all')}
+                className="px-4 py-2 rounded-md font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              >
+                Show All
+              </button>
+            )}
+          </div>
         <div className="border-t">
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
             {loading ? (
@@ -327,17 +216,7 @@ export default function UsersPage() {
                   <table className="min-w-full divide-y divide-purple-100">
                     <thead className="bg-purple-50">
                       <tr>
-                        <th className="px-2 py-3">
-                          <input
-                            type="checkbox"
-                            onChange={handleSelectAll}
-                            checked={
-                              users.length > 0 &&
-                              selectedUsers.length === users.length
-                            }
-                          />
-                        </th>
-                        <th className="px-2 py-4 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
                           Full Name
                         </th>
                         <th className="px-6 py-4 text-right text-xs font-medium text-purple-800 uppercase tracking-wider">
@@ -352,14 +231,7 @@ export default function UsersPage() {
                             key={user.id}
                             className="hover:bg-purple-50 transition-colors"
                           >
-                            <td className="px-2 py-4">
-                              <input
-                                type="checkbox"
-                                checked={selectedUsers.includes(user.id)}
-                                onChange={() => handleSelectUser(user.id)}
-                              />
-                            </td>
-                            <td className="px-2 py-4">
+                            <td className="px-6 py-4">
                               <div className="text-sm font-medium text-purple-900">
                                 {user.full_name}
                                 {user.is_suspended && (
@@ -374,13 +246,17 @@ export default function UsersPage() {
                             </td>
                             <td className="px-6 py-4 text-right text-sm font-medium">
                               <div className="flex justify-end space-x-3">
-                                <button
-                                  onClick={() => openModal(user)}
-                                  className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-100 transition-colors"
-                                  title="Send Message"
-                                >
-                                  <MessageSquare className="w-5 h-5" />
-                                </button>
+                                {user.whatsapp_number ? (
+                                  <a
+                                    href={`https://wa.me/${user.whatsapp_number}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-100 transition-colors"
+                                    title="Chat on WhatsApp"
+                                  >
+                                    <FaWhatsapp className="w-5 h-5" />
+                                  </a>
+                                ) : null}
                                 <button
                                   onClick={() => handleToggleSuspension(user)}
                                   disabled={isSuspending}
@@ -417,7 +293,7 @@ export default function UsersPage() {
                       ) : (
                         <tr>
                           <td
-                            colSpan={3}
+                            colSpan={2}
                             className="px-6 py-8 text-center"
                           >
                             <div className="text-purple-500">
@@ -463,108 +339,7 @@ export default function UsersPage() {
           </div>
         </div>
       </div>
-      {selectedUser && (
-        <SendMessageModal
-          isOpen={isModalOpen}
-          onClose={closeModal}
-          onSend={handleSendMessage}
-          userName={selectedUser.full_name}
-          isSending={isSending}
-        />
-      )}
-      <SendMessageModal
-        isOpen={isBulkModalOpen}
-        onClose={() => setIsBulkModalOpen(false)}
-        onSend={handleSendBulkMessage}
-        userName={
-          selectedUsers.length > 0
-            ? `${selectedUsers.length} users`
-            : 'all users'
-        }
-        isSending={isSending}
-      />
-    </div>
-  )
-}
 
-
-function SendMessageModal({
-  isOpen,
-  onClose,
-  onSend,
-  userName,
-  isSending,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  onSend: (message: string, title: string) => void
-  userName: string
-  isSending: boolean
-}) {
-  const [title, setTitle] = useState('')
-  const [message, setMessage] = useState('')
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!title.trim() || !message.trim()) return
-    onSend(title, message)
-    setTitle('')
-    setMessage('')
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <h2 className="text-lg font-semibold mb-4">
-          Send Message to {userName}
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="Enter message title"
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Message
-            </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              rows={4}
-              placeholder="Enter your message"
-              required
-            />
-          </div>
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSending || !title.trim() || !message.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSending ? 'Sending...' : 'Send'}
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
   )
 }
