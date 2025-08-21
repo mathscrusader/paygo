@@ -170,9 +170,9 @@ export default function UsersPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto py-8">
-          {/* Filter and Action Buttons */}
-          <div className="flex gap-4 items-center">
+      <div className="max-w-7xl mx-auto">
+          {/* Filter and Action Buttons - Centered above table */}
+          <div className="flex justify-center gap-4 items-center mb-6 mt-4">
             <button
               onClick={() => setStatusFilter('active')}
               className={`px-4 py-2 rounded-md font-medium transition-colors ${
