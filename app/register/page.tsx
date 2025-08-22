@@ -94,13 +94,18 @@ export default function RegisterPage() {
           {
             id: userId,
             full_name: name,
+            email: email,
             country_code: country,
             referred_by: referralCode || null,
+            referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
           },
         ])
 
       if (profileError) {
         console.error("Profile insert error:", profileError)
+        setError("Database error saving new user. Please try again or contact support.")
+        setLoading(false)
+        return
       } else if (referralCode) {
         // 3. Trigger referral bonus API
         try {
