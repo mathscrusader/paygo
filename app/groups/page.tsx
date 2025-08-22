@@ -38,7 +38,7 @@ export default function GroupsPage() {
   }, [loading, session, router])
 
   const handleJoinTelegram = () => {
-    window.open("https://t.me/realtechrt", "_blank")
+    window.open("https://t.me/Reward_community", "_blank")
   }
 
   if (loading || (!session && !redirectTimeoutRef.current)) {

@@ -96,7 +96,7 @@ export default function SupportPage() {
         </Card>
 
         {/* Live Chat Card */}
-        <Card>
+        {/* <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-green-600" />
@@ -118,7 +118,7 @@ export default function SupportPage() {
               Connect instantly with our team in live chat.
             </p>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Footer */}
         <div className="text-center text-sm text-gray-500 mt-6">
