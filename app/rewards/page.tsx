@@ -86,11 +86,12 @@ export default function ReferralRewardsPage() {
     console.log("New balance would be:", balance - amount)
 
     // Check if user qualifies for any amount withdrawal
-    if (balance < 20000) {
-      const shortfall = 20000 - balance
-      setMessage(`First withdrawal minimum is ₦20,000. You're short by ₦${shortfall.toLocaleString()}.`)
-      return
-    }
+    // Commented out minimum withdrawal requirement to allow all withdrawals with balance > 0
+    // if (balance < 20000) {
+    //   const shortfall = 20000 - balance
+    //   setMessage(`First withdrawal minimum is ₦20,000. You're short by ₦${shortfall.toLocaleString()}.\`)
+    //   return
+    // }
 
     if (withdrawToWallet) {
       try {
@@ -255,7 +256,7 @@ export default function ReferralRewardsPage() {
       
       console.log("Withdrawal data:", withdrawalData)
       
-      const { error: withdrawalError } = await supabase.from("Withdrawals").insert(withdrawalData)
+      const { error: withdrawalError } = await supabase.from("withdrawals").insert(withdrawalData)
 
       if (withdrawalError) {
         console.error("Withdrawal creation failed:", {

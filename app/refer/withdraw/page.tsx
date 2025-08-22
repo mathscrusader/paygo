@@ -78,7 +78,7 @@ export default function WithdrawReferralPage() {
     }
 
     // Insert withdrawal request to Supabase for admin to process
-    const { error } = await supabase.from("Withdrawals").insert([
+    const { error } = await supabase.from("withdrawals").insert([
       {
         user_id: session.user.id,
         account_name: accountName,
