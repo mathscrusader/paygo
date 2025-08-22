@@ -84,14 +84,32 @@ export default function ReferralRewardsPage() {
     console.log("Available balance:", balance)
     console.log("Requested amount:", amount)
     console.log("New balance would be:", balance - amount)
+    console.log("Referrals count:", referrals.length)
 
-    // Check if user qualifies for any amount withdrawal
-    // Commented out minimum withdrawal requirement to allow all withdrawals with balance > 0
-    // if (balance < 20000) {
-    //   const shortfall = 20000 - balance
-    //   setMessage(`First withdrawal minimum is ₦20,000. You're short by ₦${shortfall.toLocaleString()}.\`)
-    //   return
-    // }
+    // Check if user qualifies based on any of the three conditions
+    const hasFourReferrals = referrals.length >= 4
+    const hasMinimumAmount = balance >= 20000
+    
+    // Check if user has withdrawn previously
+    const { data: previousWithdrawals } = await supabase
+      .from("withdrawals")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .eq("withdrawal_type", "reward")
+    
+    const hasWithdrawnPreviously = previousWithdrawals && previousWithdrawals.length > 0
+
+    console.log("Qualification check:", {
+      hasFourReferrals,
+      hasWithdrawnPreviously,
+      hasMinimumAmount
+    })
+
+    // User must meet at least one of the three conditions
+    if (!hasFourReferrals && !hasWithdrawnPreviously && !hasMinimumAmount) {
+      setMessage("You need to meet at least one condition: 4+ referrals, previous withdrawal, or ₦20,000+ balance.")
+      return
+    }
 
     if (withdrawToWallet) {
       try {
