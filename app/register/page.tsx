@@ -98,6 +98,10 @@ export default function RegisterPage() {
             country_code: country,
             referred_by: referralCode || null,
             referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
+            upgrade_level_id: '00000000-0000-0000-0000-000000000000',
+            reward_balance: 0,
+            is_admin: false,
+            is_suspended: false,
           },
         ])
 
