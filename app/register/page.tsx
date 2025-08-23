@@ -88,22 +88,45 @@ export default function RegisterPage() {
     // 2. Insert into profiles table
     const userId = authData.user?.id
     if (userId) {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert([
-          {
-            id: userId,
-            full_name: name,
-            email: email,
-            country_code: country,
-            referred_by: referralCode || null,
-            referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
-            upgrade_level_id: '00000000-0000-0000-0000-000000000000',
-            reward_balance: 0,
-            is_admin: false,
-            is_suspended: false,
-          },
-        ])
+      // Retry mechanism to handle potential race condition
+      let retryCount = 0
+      const maxRetries = 3
+      
+      while (retryCount < maxRetries) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert([
+            {
+              id: userId,
+              full_name: name,
+              email: email,
+              country_code: country,
+              referred_by: referralCode || null,
+              referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
+              upgrade_level_id: '00000000-0000-0000-0000-000000000000',
+              reward_balance: 0,
+              is_admin: false,
+              is_suspended: false,
+            },
+          ])
+
+        if (!profileError) {
+          break // Success, exit retry loop
+        }
+        
+        if (profileError.code === '23503' && retryCount < maxRetries - 1) {
+          // Foreign key violation - user might not exist yet
+          console.log(`Retry ${retryCount + 1}/${maxRetries} - waiting for user creation...`)
+          await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+          retryCount++
+        } else {
+          // Other error or max retries reached
+          console.error("Profile insert error:", profileError)
+          setError("Database error saving new user. Please try again or contact support.")
+          setLoading(false)
+          return
+        }
+      }
 
       if (profileError) {
         console.error("Profile insert error:", profileError)
