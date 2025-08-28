@@ -80,6 +80,7 @@ export default function RegisterPage() {
     })
 
     if (signUpError) {
+      console.error("Auth signUp error:", signUpError) // 👈 log full error
       setError(signUpError.message)
       setLoading(false)
       return
@@ -88,7 +89,7 @@ export default function RegisterPage() {
     // 2. Upsert into profiles table
     const userId = authData.user?.id
     if (userId) {
-      const { error: profileError } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .upsert(
           [
@@ -104,15 +105,23 @@ export default function RegisterPage() {
               is_suspended: false,
             },
           ],
-          { onConflict: "id" } // ✅ if exists, update instead of error
+          { onConflict: "id" }
         )
+        .select() // 👈 return inserted row for debugging
 
       if (profileError) {
-        console.error("Profile upsert error:", profileError)
-        setError(profileError.message || "Database error saving new user.")
+        console.error("Profile upsert error details:", profileError) // 👈 log exact error object
+        setError(
+          profileError.message ||
+            profileError.details ||
+            profileError.hint ||
+            "Unknown database error"
+        )
         setLoading(false)
         return
       }
+
+      console.log("Profile upsert success:", profileData) // 👈 log success row
 
       // 3. Handle referral API
       if (referralCode) {
