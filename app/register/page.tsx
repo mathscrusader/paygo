@@ -31,7 +31,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // Load country list from Supabase
+  // Load country list
   useEffect(() => {
     supabase
       .from<Country>("countries")
@@ -46,7 +46,7 @@ export default function RegisterPage() {
       })
   }, [])
 
-  // Capture referral from URL or localStorage
+  // Capture referral
   useEffect(() => {
     const url = new URL(window.location.href)
     const ref = url.searchParams.get("ref")
@@ -70,7 +70,7 @@ export default function RegisterPage() {
 
     setLoading(true)
 
-    // 1. Sign up user (sends confirmation email)
+    // 1. Sign up user
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -85,55 +85,37 @@ export default function RegisterPage() {
       return
     }
 
-    // 2. Insert into profiles table
+    // 2. Upsert into profiles table
     const userId = authData.user?.id
     if (userId) {
-      let retryCount = 0
-      const maxRetries = 3
-      let profileError = null
-
-      while (retryCount < maxRetries) {
-        const { error } = await supabase
-          .from("profiles")
-          .insert([
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert(
+          [
             {
               id: userId,
               full_name: name,
               email,
               country_code: country,
               referred_by: referralCode || null,
-              // 🚫 referral_code removed — trigger will set it
               upgrade_level_id: null,
               reward_balance: 0,
               is_admin: false,
               is_suspended: false,
             },
-          ])
-
-        profileError = error
-
-        if (!profileError) {
-          break // ✅ success
-        }
-
-        if (profileError.code === "23503" && retryCount < maxRetries - 1) {
-          console.log(`Retry ${retryCount + 1}/${maxRetries} - waiting for user creation...`)
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-          retryCount++
-        } else {
-          console.error("Profile insert error:", profileError)
-          setError(profileError.message || "Database error saving new user. Please try again or contact support.")
-          setLoading(false)
-          return
-        }
-      }
+          ],
+          { onConflict: "id" } // ✅ if exists, update instead of error
+        )
 
       if (profileError) {
-        setError(profileError.message || "Database error saving new user. Please try again or contact support.")
+        console.error("Profile upsert error:", profileError)
+        setError(profileError.message || "Database error saving new user.")
         setLoading(false)
         return
-      } else if (referralCode) {
-        // 3. Trigger referral bonus API
+      }
+
+      // 3. Handle referral API
+      if (referralCode) {
         try {
           await fetch("/api/referral", {
             method: "POST",
