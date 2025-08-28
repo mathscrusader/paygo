@@ -82,8 +82,11 @@ export default function RegisterPage() {
       },
     })
 
+    // 👇 Debug log full raw response
+    console.log("Raw signup response:", { authData, signUpError })
+
     if (signUpError) {
-      console.error("Auth signUp error:", signUpError) // log full error
+      console.error("Auth signUp error:", signUpError) 
       setError(signUpError.message)
       setLoading(false)
       return
