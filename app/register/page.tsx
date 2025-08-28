@@ -70,17 +70,20 @@ export default function RegisterPage() {
 
     setLoading(true)
 
-    // 1. Sign up user
+    // 1. Sign up user (sends confirmation email)
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { fullName: name, countryCode: country },
+        data: { 
+          fullName: name,        // ✅ ensure trigger gets fullName
+          countryCode: country   // ✅ ensure trigger gets countryCode
+        },
       },
     })
 
     if (signUpError) {
-      console.error("Auth signUp error:", signUpError) // 👈 log full error
+      console.error("Auth signUp error:", signUpError) // log full error
       setError(signUpError.message)
       setLoading(false)
       return
@@ -107,21 +110,21 @@ export default function RegisterPage() {
           ],
           { onConflict: "id" }
         )
-        .select() // 👈 return inserted row for debugging
+        .select()
 
       if (profileError) {
-        console.error("Profile upsert error details:", profileError) // 👈 log exact error object
+        console.error("Profile upsert error details:", profileError)
         setError(
           profileError.message ||
-            profileError.details ||
-            profileError.hint ||
-            "Unknown database error"
+          profileError.details ||
+          profileError.hint ||
+          "Unknown database error"
         )
         setLoading(false)
         return
       }
 
-      console.log("Profile upsert success:", profileData) // 👈 log success row
+      console.log("Profile upsert success:", profileData)
 
       // 3. Handle referral API
       if (referralCode) {
