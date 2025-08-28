@@ -102,8 +102,8 @@ export default function RegisterPage() {
               email,
               country_code: country,
               referred_by: referralCode || null,
-              referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
-              upgrade_level_id: null, // ✅ set to null to avoid FK violation
+              // 🚫 referral_code removed — trigger will set it
+              upgrade_level_id: null,
               reward_balance: 0,
               is_admin: false,
               is_suspended: false,
@@ -122,14 +122,14 @@ export default function RegisterPage() {
           retryCount++
         } else {
           console.error("Profile insert error:", profileError)
-          setError("Database error saving new user. Please try again or contact support.")
+          setError(profileError.message || "Database error saving new user. Please try again or contact support.")
           setLoading(false)
           return
         }
       }
 
       if (profileError) {
-        setError("Database error saving new user. Please try again or contact support.")
+        setError(profileError.message || "Database error saving new user. Please try again or contact support.")
         setLoading(false)
         return
       } else if (referralCode) {
